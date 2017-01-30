@@ -2325,6 +2325,36 @@ by rewrite -[i](permK s) (out_perm (perm_onI s_on) i_notR) i_notR i_notQ.
 Qed.
 
 
+Lemma sym_fundamental_seqroots_for_leq S (ringS : @subringPred T S) 
+  (kS : keyed_pred ringS) c m p (l : T ^ m.+1) P k :
+  partition P [set: 'I_m.+1] -> injective l ->
+  {in P, forall Q : {set 'I_m.+1}, 
+    [fset l i | i in Q]%fset \is a set_roots kS c} ->
+  p \is a mpolyOver m.+1 kS -> 
+  {in P, forall Q, p \is (@symmetric_for _ _ Q)} ->
+  (msize p <= k)%N -> 
+  c ^+ k * p.@[l] \in kS.
+Proof.
+move => H1 H2 H3 H4 H5 k_leq.
+have c_in : c \in kS.
+  pose Q := head set0 (enum P).
+  have HQ : Q \in enum P. 
+    rewrite /Q -nth0 mem_nth // -cardE lt0n cards_eq0.
+    apply/negP => /eqP P_0.
+    have := (cover_partition H1); rewrite /cover P_0 big_set0.
+    by apply/eqP; rewrite eq_sym; apply/set0Pn; exists ord0.
+  have {HQ} Q_in : Q \in P by move: HQ; rewrite /(enum _) mem_filter => /andP[].
+  by have := (set_roots_lead_coef (H3 Q Q_in)).
+rewrite -(subnKC k_leq) exprD mulrAC rpredM ?rpredX //.
+case: (boolP ((msize p) == 0%N)) => [/eqP Hmsize |].
+  rewrite Hmsize -[0%N]/(0%N.-1) -Hmsize.
+  by apply: (sym_fundamental_seqroots_for H1 H2 H3 H4 H5).
+rewrite -lt0n; move/prednK => <-.
+rewrite exprS -mulrA rpredM //.
+by apply: (sym_fundamental_seqroots_for H1 H2 H3 H4 H5).
+Qed.
+
+
 End ClosedField_ajouts.
 
 Section Seq_ajouts.
