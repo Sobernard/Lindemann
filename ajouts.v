@@ -777,17 +777,17 @@ Qed.
 
 Lemma msize_prod (n : nat) (R : idomainType) (I : finType) (P : pred I) 
      (F : I -> {mpoly R[n]}) :
-  (forall i, P i -> F i != 0) -> 
   (msize (\prod_(i | P i) F i) <= 
   (\sum_(i | P i) (msize (F i))).+1 - \sum_(i | P i) 1)%N.
 Proof.
-move=> H_neq0.
 apply: (big_rec3 (fun x y z => (msize x <= y.+1 - z)%N)).
   by rewrite subn0 msize1.
 move=> i p x y Hi; rewrite -addn1 subnDA => Hp.
 rewrite -addn1 -subnDA.
 case: (boolP (p == 0)) => [/eqP -> | p_neq0].
   by rewrite mulr0 msize0.
+case: (boolP (F i == 0)) => [/eqP -> | F_neq0].
+  by rewrite mul0r msize0.
 apply: (leq_trans (msizeM_proper _ _)).
 apply/(@leq_trans (msize (F i) + (x + 1 - y)).-1).
   by rewrite -!subn1 leq_sub2r ?leq_add2l.
@@ -797,7 +797,7 @@ have leq_yx : (y <= x + 1)%N.
   rewrite addnC ltnW // -[y]addn0 -ltn_subRL.
   by apply/(leq_trans _ Hp); rewrite lt0n msize_poly_eq0.
 rewrite -[X in (_ <= X)%N]subSn; last first.
-  by apply/(leq_trans leq_yx); rewrite addnC leq_add2r lt0n msize_poly_eq0 H_neq0 ?Hi.
+  by apply/(leq_trans leq_yx); rewrite addnC leq_add2r lt0n msize_poly_eq0 F_neq0 ?Hi.
 by rewrite -addnS addnBA // -addn1.
 Qed.
 
