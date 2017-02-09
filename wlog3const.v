@@ -355,6 +355,12 @@ Qed.
 
 Definition J := c ^+ (\sum_(i < l.+1) (p * l.+1)) * \prod_(i < l.+1) Ji i.
 
+Lemma eq_J_mpoly : J = c ^+ (\sum_(i < l.+1) (p * l.+1)) * (\prod_(i < l.+1) (Jip i)).@[alpha].
+Proof.
+rewrite /J; congr (_ * _); rewrite rmorph_prod /=.
+by apply: eq_bigr => i _; rewrite Eq_Ji.
+Qed.
+
 Lemma J_divp1 : J / (p.-1)`!%:R \is a Cint.
 Proof.
 suff : (J / (\prod_(i < l.+1) (p.-1)`!%:R)) \is a Cint.
@@ -506,23 +512,41 @@ suff : ((J - x) / (\prod_(i < l.+1) p`!%:R)) \is a Cint.
   have pp_neq0 : pp != 0 by apply:expf_neq0; rewrite pnatr_eq0 -lt0n fact_gt0.
   rewrite -[X in X \is a Cint]mulr1 -[X in _ * X](divff pp_neq0) mulf_div.
   by rewrite (mulrC (J - x)) -mulrA rpredM // Cint_Cnat ?rpredX ?Cnat_nat.
-rewrite /J /x /= -prodrXr -big_split /=.
+have eq_Jx_div : 
+  (\prod_(i < l.+1) (c ^+ (p * l.+1))) * ((\prod_(i < l.+1) ((p`!%:R)^-1 *: Jip i)) -
+  \prod_(i < l.+1) ((- a i * (p%:R)^-1) *: ((F i)^`N(p.-1)).['X_i])).@[alpha] = 
+       (J - x) / \prod_(i < l.+1) p`!%:R.
+  rewrite mevalB mulrDr mulrN [in RHS]mulrDl mulNr.
+  congr (_ - _).
+    rewrite eq_J_mpoly -mulrA prodrXr.  
+    congr (_ * _); rewrite !rmorph_prod /= -prodf_div.
+    by apply: eq_bigr => i _; rewrite mevalZ mulrC. 
+  rewrite rmorph_prod /= -big_split /= /x -prodf_div.
+  apply: eq_bigr => i _; rewrite !mevalZ !mulrA -[in RHS]mulr_natr !mulrN.
+  set y1 := _ * a i; set y2 := _.@[alpha].
+  
 
-Search _ Ji.  
- 
+rewrite eq_J_mpoly mulrDl -prodrXr -!mulrA.
+rewrite [X in _ * X]mulrC -mevalZ.
+set u := _ * (_ *: _).@[alpha].
+have -> : (- x / \prod_(i < l.+1) p`!%:R) = 
+  (\prod_(i < l.+1) c ^+ (p * l.+1)) * ( - \prod_(i < l.+1)  
+rewrite /x.
+
+Search _ (_ *+ _) (_ *: _).
+
 
 About big_split.
 
-Search _ "big" "distr".
+Search _ meval.
+
+rewrite /J /x /= -prodrXr -big_split /= mulrDl /= -!prodf_div.
+
+
+
 
 
 pose q0 := (\prod_(i < l.+1) ((\sum_(j < l.+1) a j *: (G i).['X_j]))).
-
-
-
-
-
-/= -prodf_div.
 pose q1' := (\prod_(i < l.+1) - (c ^+ (p * l.+1) *: ((\sum_(j < l.+1) (a j) *: (G i).['X_j]) *+ p
           + a i *: (F i)^`N(p.-1).['X_i]) )).
 have eq_J_q1' : \prod_(i < l.+1) ((c ^+ (p * l.+1) * ((p.-1)`!%:R)^-1) *: Jip i) = q1'.
