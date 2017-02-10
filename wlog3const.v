@@ -141,49 +141,16 @@ apply/mrootX/rootP; rewrite horner_prod.
 by apply/eqP/prodf_eq0; exists j => //; rewrite hornerXsubC subrr.
 Qed.
 
-
-Definition Sd (aT : ringType) (P : {poly aT}) j0 := 
-  \sum_(j0 <= j < (size P)) P^`(j).
-
-Lemma size_Sd (aT : idomainType) (P : {poly aT}) : 
-  [char aT] =i pred0 -> size (Sd P 0) = size P.
+Lemma F_over i : F i \is a polyOver (mpolyOver _ Cint).
 Proof.
-rewrite charf0P => Hnatr_eq0.
-case: (boolP (P == 0)) => [/eqP -> |].
-  by rewrite /Sd size_poly0 big_nil size_poly0.
-move/polySpred ;
-move Hs : (size P).-1 => q.
-rewrite /Sd.
-elim: q P Hs => [P Hs sP | q Ihq P Hs sP].
-  by rewrite sP big_nat1 derivn0.
-rewrite big_ltn ; last by rewrite sP.
-rewrite derivn0 {1}sP size_addl // big_add1 -pred_Sn.
-rewrite (@eq_big_nat _ _ _ _ _ _ (fun i : nat => derivn i (deriv  P) ) );
-  last by move => i Hi; apply: derivSn.
-suff Hp : (size (P^`()) = q.+1).
-  rewrite -Hp Ihq //; last by rewrite Hp -pred_Sn.
-  by rewrite lt_size_deriv // -size_poly_gt0 sP.
-rewrite [q.+1]pred_Sn -sP /deriv size_poly_eq //.
-rewrite sP -!pred_Sn -mulr_natr mulf_neq0 ?Hnatr_eq0 //.
-by rewrite -[q.+1]/(q.+2.-1) -sP -lead_coefE lead_coef_eq0 -size_poly_gt0 sP.
+apply/rpredM; first apply/rpredX.
+  by apply/rpred_prod=> j _; rewrite polyOverXsubC mpolyOverX.
+by apply/rpred_prod=> j _; rewrite polyOverXsubC mpolyOverX.
 Qed.
 
-Definition I i j := Cexp (alpha j) * 
-   (Sd (F i) 0).[0].@[alpha] - (Sd (F i) 0).['X_j].@[alpha].
-
-Definition Ji i := \sum_(j < l.+1) (a j) * (I i j).
-
-Definition Jip i : {mpoly complexR[l.+1]} :=  
-  - \sum_(j < l.+1) (a j) *: (Sd (F i) 0).['X_j].
-
-Lemma msize_Jip i :
-  (msize (Jip i) <= (p * l.+1))%N.
+Lemma F_msize (i : 'I_l.+1) (k : 'I_(size (F i))) j : 
+  (msize ((F i)^`(k)).['X_j] <= p * l.+1)%N.
 Proof.
-rewrite /Jip msizeN.
-apply/(leq_trans (msize_sum _ _ _) _) /bigmax_leqP => j _.
-rewrite msizeZ ?a_neq0 // /Sd horner_sum.
-apply/(leq_trans (msize_sum _ _ _) _); rewrite big_mkord.
-apply/bigmax_leqP => k _.
 apply/(leq_trans (msize_horner _ _)) => {j}.
 apply/bigmax_leqP => i0 _.
 rewrite coef_derivn -scaler_nat.
@@ -240,6 +207,51 @@ apply: ltn_sub2r; first by move: ord_k1; rewrite size_F.
 by rewrite -addnS -mulSnr (prednK p_gt0).
 Qed.
 
+Definition Sd (aT : ringType) (P : {poly aT}) j0 := 
+  \sum_(j0 <= j < (size P)) P^`(j).
+
+Lemma size_Sd (aT : idomainType) (P : {poly aT}) : 
+  [char aT] =i pred0 -> size (Sd P 0) = size P.
+Proof.
+rewrite charf0P => Hnatr_eq0.
+case: (boolP (P == 0)) => [/eqP -> |].
+  by rewrite /Sd size_poly0 big_nil size_poly0.
+move/polySpred ;
+move Hs : (size P).-1 => q.
+rewrite /Sd.
+elim: q P Hs => [P Hs sP | q Ihq P Hs sP].
+  by rewrite sP big_nat1 derivn0.
+rewrite big_ltn ; last by rewrite sP.
+rewrite derivn0 {1}sP size_addl // big_add1 -pred_Sn.
+rewrite (@eq_big_nat _ _ _ _ _ _ (fun i : nat => derivn i (deriv  P) ) );
+  last by move => i Hi; apply: derivSn.
+suff Hp : (size (P^`()) = q.+1).
+  rewrite -Hp Ihq //; last by rewrite Hp -pred_Sn.
+  by rewrite lt_size_deriv // -size_poly_gt0 sP.
+rewrite [q.+1]pred_Sn -sP /deriv size_poly_eq //.
+rewrite sP -!pred_Sn -mulr_natr mulf_neq0 ?Hnatr_eq0 //.
+by rewrite -[q.+1]/(q.+2.-1) -sP -lead_coefE lead_coef_eq0 -size_poly_gt0 sP.
+Qed.
+
+Definition I i j := Cexp (alpha j) * 
+   (Sd (F i) 0).[0].@[alpha] - (Sd (F i) 0).['X_j].@[alpha].
+
+Definition Ji i := \sum_(j < l.+1) (a j) * (I i j).
+
+Definition Jip i : {mpoly complexR[l.+1]} :=  
+  - \sum_(j < l.+1) (a j) *: (Sd (F i) 0).['X_j].
+
+Lemma msize_Jip i :
+  (msize (Jip i) <= (p * l.+1))%N.
+Proof.
+rewrite /Jip msizeN.
+apply/(leq_trans (msize_sum _ _ _) _) /bigmax_leqP => j _.
+rewrite msizeZ ?a_neq0 // /Sd horner_sum.
+apply/(leq_trans (msize_sum _ _ _) _); rewrite big_mkord.
+apply/bigmax_leqP => k _.
+apply: F_msize.
+Qed.
+
 Lemma Eq_Ji i : 
   Ji i = (Jip i).@[alpha].
 Proof.
@@ -261,36 +273,11 @@ Qed.*)
 Definition G i : {poly {mpoly complexR[l.+1]}} := 
    \sum_(0 <= j < p * l) (F i)^`N(p)^`(j).
 
-(* TODO : this is very general and should be migrated to poly *)
-Lemma derivn_add {R : ringType} (P : {poly R}) i j : P^`(i+j) = P^`(i)^`(j).
-Proof. by rewrite addnC [LHS]iter_add. Qed.
-
 Lemma G_sum i : (G i) *+ (p`!) = \sum_(p <= j < size (F i)) (F i)^`(j).
 Proof.
 rewrite /G -mulr_natr big_distrl /= size_F mulnS addnC -{4}(add0n p).
 rewrite big_addn addnK; apply: eq_bigr => j _.
 by rewrite mulr_natr -derivnMn -!nderivn_def addnC derivn_add.
-Qed.
-
-(* This one already exists in cauchyreals, with name size_derivn
-   but it requires a structure that is to strong: realDomainType. *)
-Lemma size_deriv_char (aT : idomainType) (P : {poly aT}) :
-  [char aT] =i pred0 -> (size (deriv P) = (size P).-1)%N.
-Proof.
-rewrite charf0P => Hnatr_eq0.
-have [lep1|lt1p] := leqP (size P) 1.
-  by rewrite {1}[P]size1_polyC // derivC size_poly0 -subn1 (eqnP lep1).
-rewrite size_poly_eq //. 
-rewrite -mulr_natl mulf_eq0 Hnatr_eq0 -subn2 -subSn // subn2.
-by rewrite lead_coef_eq0 -size_poly_eq0 -(subnKC lt1p).
-Qed.
-
-Lemma size_derivn_char (aT : idomainType) (P : {poly aT}) j :
-  [char aT] =i pred0 -> (size (P^`(j)) = (size P) - j)%N.
-Proof.
-move=> Hchar.
-elim: j => [ | j ihj]; first by rewrite subn0 derivn0.
-by rewrite derivnS subnS -ihj size_deriv_char.
 Qed.
 
 Lemma size_G i : (size (G i) = p * l)%N.
@@ -303,6 +290,11 @@ rewrite G_sum (_ : \sum_(p <=j< size (F i)) (F i)^`(j)=(Sd ((F i)^`(p)) 0)); las
   by apply: eq_bigr => j _; rewrite addnC derivn_add.
 rewrite size_Sd ?size_derivn_char; [|apply: HcC|apply: HcC]. 
 by rewrite size_F mulnS -{3}[p]addn0 subnDl subn0.
+Qed.
+
+Lemma G_over i : G i \is a polyOver (mpolyOver _ Cint).
+Proof.
+by apply/rpred_sum => j _; apply/polyOver_derivn/polyOver_nderivn/F_over.
 Qed.
 
 Lemma Fdalpha_re i j : 
@@ -361,6 +353,85 @@ rewrite /J; congr (_ * _); rewrite rmorph_prod /=.
 by apply: eq_bigr => i _; rewrite Eq_Ji.
 Qed.
 
+Lemma J_msize : 
+   (msize (\prod_(i < l.+1) (Jip i)) <= \sum_(i < l.+1) (p * l.+1))%N.
+Proof.
+apply/(leq_trans (msize_prod _ _) _); rewrite leq_subLR.
+have : (\sum_(i < l.+1) msize (Jip i) <= \sum_(i < l.+1) (p * l.+1))%N.
+  by apply: leq_sum => i _; apply/msize_Jip.
+move/leq_ltn_trans; apply; rewrite -[X in (X < _)%N]add0n ltn_add2r.
+by rewrite sum_nat_const muln1 cardT size_enum_ord.
+Qed.
+
+Lemma J_msym : {in part, forall Q : {set 'I_l.+1}, 
+   (\prod_(i < l.+1) (Jip i)) \is symmetric_for _ Q}.
+Proof.
+move=> Q Q_in; apply/issym_forP => s s_on.
+have := (constantP 0 _ (a_constant Q_in)).
+set sa := [seq _ | _ in _]; move => [a_c eq_a_c].
+rewrite [RHS](reindex_inj (@perm_inj _ s)) rmorph_prod /=.
+apply/eq_bigr => i_prod _; rewrite !Eq_JGip msymN msymD msymMn rmorph_sum /=.
+congr (-((_ *+ _) + _)).
+  rewrite [RHS](reindex_inj (@perm_inj _ s)) /=.
+  apply/eq_bigr => i_a _; rewrite msymZ.
+  congr (_ *: _).
+    case: (boolP (i_a \in Q)) => [i_a_in|]; last first.
+      by move/(out_perm s_on) => ->.
+    have i_a_in_seq : a i_a \in sa by apply: map_f; rewrite mem_enum.
+    have : a (s i_a) \in sa. 
+      by apply: map_f; rewrite mem_enum (perm_closed _ s_on).
+    rewrite eq_a_c; move/nseqP => [-> _].
+    by move: i_a_in_seq; rewrite eq_a_c; move/nseqP => [ -> _].
+  rewrite /G !horner_sum rmorph_sum /=.
+  apply/eq_bigr => i_der _; rewrite -horner_map /= msymX /=.
+  congr (_ .[ _] ); first rewrite -derivn_map -nderivn_map rmorphM /=.
+    congr (((_ * _)^`N(_)) ^`(_)); first rewrite rmorphX /=.
+      congr (_ ^+ _); rewrite [RHS](reindex_inj (@perm_inj _ s)) rmorph_prod /=.
+      apply/eq_bigr => i_last _; rewrite rmorphB /= map_polyX map_polyC /=.
+      congr (_ - _%:P); rewrite msymX; congr mpolyX.
+      apply/mnmP => j; rewrite mnmE !mnm1E; congr nat_of_bool.
+      by apply/eqP/eqP => [-> | <-]; rewrite ?permKV ?permK.
+    rewrite /T rmorph_prod /= [RHS](reindex_inj (@perm_inj _ s)) /=.
+    apply/congr_big => //.
+      move=> j; apply/negP/negP => H1 /eqP. 
+        by move/perm_inj => H2; apply: H1; rewrite H2.
+      by move=> H2; apply: H1; rewrite H2.
+    move=> i_last _; rewrite rmorphB /= map_polyX map_polyC /=.
+    congr (_ - _%:P); rewrite msymX; congr mpolyX.
+    apply/mnmP => j; rewrite mnmE !mnm1E; congr nat_of_bool.
+    by apply/eqP/eqP => [-> | <-]; rewrite ?permKV ?permK.
+  congr mpolyX; apply/mnmP => i_last; rewrite mnmE !mnm1E; congr nat_of_bool.
+  by apply/eqP/eqP => [-> | <-]; rewrite ?permKV ?permK.
+rewrite msymMn msymZ -horner_map /= msymX -nderivn_map /= /F rmorphM /=.
+congr (_ *: _ *+ _).
+  case: (boolP (i_prod \in Q)) => [i_a_in|]; last first.
+    by move/(out_perm s_on) => ->.
+  have i_a_in_seq : a i_prod \in sa by apply: map_f; rewrite mem_enum.
+  have : a (s i_prod) \in sa. 
+    by apply: map_f; rewrite mem_enum (perm_closed _ s_on).
+  rewrite eq_a_c; move/nseqP => [-> _].
+  by move: i_a_in_seq; rewrite eq_a_c; move/nseqP => [ -> _].
+congr ((_ * _)^`N( _).[ _]).
+    rewrite rmorphX rmorph_prod; congr (_ ^+ _). 
+    rewrite [RHS](reindex_inj (@perm_inj _ s)) /=.
+    apply/eq_bigr => i_last _; rewrite rmorphB /= map_polyX map_polyC /=.
+    congr (_ - _%:P); rewrite msymX; congr mpolyX.
+    apply/mnmP => j; rewrite mnmE !mnm1E; congr nat_of_bool.
+    by apply/eqP/eqP => [-> | <-]; rewrite ?permKV ?permK.
+  rewrite /T rmorph_prod /= [RHS](reindex_inj (@perm_inj _ s)) /=.
+  apply/congr_big => //.
+    move=> j; apply/negP/negP => H1 /eqP. 
+      by move/perm_inj => H2; apply: H1; rewrite H2.
+    by move=> H2; apply: H1; rewrite H2.
+  move=> i_last _; rewrite rmorphB /= map_polyX map_polyC /=.
+  congr (_ - _%:P); rewrite msymX; congr mpolyX.
+  apply/mnmP => j; rewrite mnmE !mnm1E; congr nat_of_bool.
+  by apply/eqP/eqP => [-> | <-]; rewrite ?permKV ?permK.
+congr mpolyX; apply/mnmP => i_last; rewrite mnmE !mnm1E; congr nat_of_bool.
+by apply/eqP/eqP => [-> | <-]; rewrite ?permKV ?permK.
+Qed.
+
+
 Lemma J_divp1 : J / (p.-1)`!%:R \is a Cint.
 Proof.
 suff : (J / (\prod_(i < l.+1) (p.-1)`!%:R)) \is a Cint.
@@ -368,286 +439,75 @@ suff : (J / (\prod_(i < l.+1) (p.-1)`!%:R)) \is a Cint.
   have pp_neq0 : pp != 0 by apply:expf_neq0; rewrite pnatr_eq0 -lt0n fact_gt0.
   rewrite -[X in X \is a Cint]mulr1 -[X in _ * X](divff pp_neq0) mulf_div.
   by rewrite (mulrC J) -mulrA rpredM // Cint_Cnat ?rpredX ?Cnat_nat.
-pose q0 := (\prod_(i < l.+1) ((\sum_(j < l.+1) a j *: (G i).['X_j]) *+ p 
-            + a i *: ((F i)^`N(p.-1)).['X_i])).
-rewrite /J /= -prodrXr -big_split /= -prodf_div.
-pose q1' := (\prod_(i < l.+1) - (c ^+ (p * l.+1) *: ((\sum_(j < l.+1) (a j) *: (G i).['X_j]) *+ p
-          + a i *: (F i)^`N(p.-1).['X_i]) )).
-have eq_J_q1' : \prod_(i < l.+1) ((c ^+ (p * l.+1) * ((p.-1)`!%:R)^-1) *: Jip i) = q1'.
-  apply/eq_bigr=> i _; rewrite Eq_JGip scalerN -scalerA; congr (- (_ *: _)).
-  rewrite scalerDr; congr (_ + _).
-    rewrite -scaler_nat scalerA -scaler_nat; congr (_ *: _).
-    rewrite mulrC -{1}(prednK p_gt0) factS (prednK p_gt0) natrM -mulrA divff.
-      by rewrite mulr1.
-    by rewrite pnatr_eq0 -lt0n fact_gt0.
-  rewrite -scaler_nat [LHS]scalerA mulrC divff ?scale1r //.
-  by rewrite pnatr_eq0 -lt0n fact_gt0.
-pose q1 := (\prod_(i < l.+1) - (c ^+ (p * l.+1) * ((\sum_(j < l.+1) (a j) * (G i).['X_j].@[alpha]) *+ p
-          + a i * (F i)^`N(p.-1).['X_i].@[alpha]) )).
-have eq_J_q1 : \prod_(i < l.+1) (c ^+ (p * l.+1) * Ji i / (p.-1)`!%:R) = q1.
-  apply/eq_bigr=> i _; rewrite Eq_JGi mulrN -!mulNr -mulrA mulrDl.
-  congr (_ *( _ + _)).
-    rewrite -mulr_natr -{1}(prednK p_gt0) factS (prednK p_gt0) natrM.
-    rewrite mulrA -[in RHS]mulr_natr -[RHS]mulr1 -!mulrA divff //.
-    by rewrite pnatr_eq0 -lt0n fact_gt0.
-  by rewrite -mulr_natr -!mulrA divff ?mulr1 // pnatr_eq0 -lt0n fact_gt0.
-
-have eq_q1_q0 : q1 = (-1) ^+ (\sum_(i < l.+1) 1%N) * c ^+ (\sum_(i < l.+1) p * l.+1) * q0.@[alpha].
-  rewrite /q1 prodrN -mulrA; congr (_ * _).
-    by rewrite cardT sum1_size /index_enum -enumT.
-  rewrite big_split /= prodrXr; congr (_ * _).
-  rewrite /q0 rmorph_prod /=.
-  apply: eq_bigr => i _.
-  rewrite mevalD mevalMn.
-  congr (_*+ _ + _).
-    rewrite rmorph_sum /=.
-    by apply: eq_bigr => j _; rewrite mevalZ.
-  by rewrite mevalZ.
-rewrite eq_J_q1 eq_q1_q0 -mulrA rpredMsign. 
+rewrite eq_J_mpoly mulrAC -mulrA -mevalZ.
 apply: (sym_fundamental_seqroots_for_leq part_partition) => //.
-+ rewrite /q0; apply/rpred_prod => i _; apply/rpredD.
-    apply/rpredMn/rpred_sum => j _; apply/rpredZ_Cint => //.
-    rewrite /G horner_sum; apply/rpred_sum => k _; apply/rpred_horner.
-      apply/polyOver_derivn/polyOver_nderivn; rewrite /F.
-      apply/rpredM.
-        by apply/rpredX/rpred_prod => i1 _; rewrite polyOverXsubC mpolyOverX.
-      by rewrite /T; apply/rpred_prod => i1 _; rewrite polyOverXsubC mpolyOverX.
-    by rewrite mpolyOverX.
-  apply/rpredZ_Cint => //; apply/rpred_horner; last by rewrite mpolyOverX.
-  apply/polyOver_nderivn; rewrite /F; apply/rpredM.
-    by apply/rpredX/rpred_prod => i1 _; rewrite polyOverXsubC mpolyOverX.
-  by rewrite /T; apply/rpred_prod => i1 _; rewrite polyOverXsubC mpolyOverX.
-+ move=> Q Q_in; apply/issym_forP => s s_on.
-  have := (constantP 0 _ (a_constant Q_in)).
-  set sa := [seq _ | _ in _]; move => [a_c eq_a_c].
-  rewrite /q0 [RHS](reindex_inj (@perm_inj _ s)) rmorph_prod /=.
-  apply/eq_bigr => i_prod _.
-  rewrite rmorphD rmorphMn rmorph_sum /=.
-  congr ((_ *+ _) + _).
-    rewrite [RHS](reindex_inj (@perm_inj _ s)) /=.
-    apply/eq_bigr => i_a _; rewrite msymZ.
-    congr (_ *: _).
-      case: (boolP (i_a \in Q)) => [i_a_in|]; last first.
-        by move/(out_perm s_on) => ->.
-      have i_a_in_seq : a i_a \in sa by apply: map_f; rewrite mem_enum.
-      have : a (s i_a) \in sa. 
-        by apply: map_f; rewrite mem_enum (perm_closed _ s_on).
-      rewrite eq_a_c; move/nseqP => [-> _].
-      by move: i_a_in_seq; rewrite eq_a_c; move/nseqP => [ -> _].
-    rewrite /G !horner_sum rmorph_sum /=.
-    apply/eq_bigr => i_der _.
-    rewrite -horner_map /= msymX /=.
-    congr (_ .[ _] ). 
-      rewrite -derivn_map -nderivn_map rmorphM /=; congr (((_ * _)^`N(_)) ^`(_)).
-        rewrite rmorphX /=; congr (_ ^+ _).
-        rewrite [RHS](reindex_inj (@perm_inj _ s)) /= rmorph_prod /=.
-        apply/eq_bigr => i_last _; rewrite rmorphB /= map_polyX map_polyC /=.
-        congr (_ - _%:P); rewrite msymX; congr mpolyX.
-        apply/mnmP => j; rewrite mnmE !mnm1E; congr nat_of_bool.
-        by apply/eqP/eqP => [-> | <-]; rewrite ?permKV ?permK.
-      rewrite /T rmorph_prod /= [RHS](reindex_inj (@perm_inj _ s)) /=.
-      apply/congr_big => //.
-        move=> j; apply/negP/negP => H1 /eqP. 
-          by move/perm_inj => H2; apply: H1; rewrite H2.
-        by move=> H2; apply: H1; rewrite H2.
-      move=> i_last _; rewrite rmorphB /= map_polyX map_polyC /=.
-      congr (_ - _%:P); rewrite msymX; congr mpolyX.
-      apply/mnmP => j; rewrite mnmE !mnm1E; congr nat_of_bool.
-      by apply/eqP/eqP => [-> | <-]; rewrite ?permKV ?permK.
-    congr mpolyX; apply/mnmP => i_last; rewrite mnmE !mnm1E; congr nat_of_bool.
-      by apply/eqP/eqP => [-> | <-]; rewrite ?permKV ?permK.
-  rewrite msymZ -horner_map /= msymX -nderivn_map /= /F rmorphM /=.
-  congr (_ *: ((_ * _)^`N( _)).[ _]).
-  + case: (boolP (i_prod \in Q)) => [i_a_in|]; last first.
-      by move/(out_perm s_on) => ->.
-    have i_a_in_seq : a i_prod \in sa by apply: map_f; rewrite mem_enum.
-    have : a (s i_prod) \in sa. 
-      by apply: map_f; rewrite mem_enum (perm_closed _ s_on).
-    rewrite eq_a_c; move/nseqP => [-> _].
-    by move: i_a_in_seq; rewrite eq_a_c; move/nseqP => [ -> _].
-  + rewrite rmorphX rmorph_prod; congr (_ ^+ _). 
-    rewrite [RHS](reindex_inj (@perm_inj _ s)) /=.
-    apply/eq_bigr => i_last _; rewrite rmorphB /= map_polyX map_polyC /=.
-    congr (_ - _%:P); rewrite msymX; congr mpolyX.
-    apply/mnmP => j; rewrite mnmE !mnm1E; congr nat_of_bool.
-    by apply/eqP/eqP => [-> | <-]; rewrite ?permKV ?permK.
-  + rewrite /T rmorph_prod /= [RHS](reindex_inj (@perm_inj _ s)) /=.
-    apply/congr_big => //.
-      move=> j; apply/negP/negP => H1 /eqP. 
-        by move/perm_inj => H2; apply: H1; rewrite H2.
-      by move=> H2; apply: H1; rewrite H2.
-    move=> i_last _; rewrite rmorphB /= map_polyX map_polyC /=.
-    congr (_ - _%:P); rewrite msymX; congr mpolyX.
-    apply/mnmP => j; rewrite mnmE !mnm1E; congr nat_of_bool.
-    by apply/eqP/eqP => [-> | <-]; rewrite ?permKV ?permK.
-  + congr mpolyX; apply/mnmP => i_last; rewrite mnmE !mnm1E; congr nat_of_bool.
-    by apply/eqP/eqP => [-> | <-]; rewrite ?permKV ?permK.
-have -> : q0 =  ((- (c ^+ (p * l.+1)))^-1) ^+ l.+1 *: q1'.
-  rewrite /q0 /q1'.
-  rewrite [in RHS](eq_bigr (fun i => 
-     ( - c ^+ (p * l.+1) *:
-      ((\sum_(j < l.+1) a j *: (G i).['X_j]) *+ p + a i *: ((F i)^`N(p.-1)).['X_i])))); last first.
-    by move=> i _; rewrite scaleNr.
-  rewrite scaler_prodl cardT size_enum_ord scalerA mulrC.
-  set x := \prod_(_ | _) _; set y := - _ ^+ _.
-  rewrite exprVn -expr_div_n divff ?expr1n ?scale1r // /y oppr_eq0 expf_eq0.
-  by rewrite negb_and c_neq0 orbT.
-apply/(leq_trans (msizeZ_le _ _)).
-rewrite -eq_J_q1' scaler_prodl.
-apply/(leq_trans (msizeZ_le _ _)) => /=.
-apply/(leq_trans (msize_prod _ _)).
-rewrite sum1_card cardT size_enum_ord subSS.
-apply/(leq_trans (leq_subr _ _)).
-apply: (big_rec2 (fun x y => (x <= y)%N) (leqnn _)) => i x y _ Hxy.
-by apply/(leq_add (msize_Jip _) Hxy).
++ rewrite -prodfV -scaler_prod.
+  apply/rpred_prod => i_prod _; rewrite Eq_JGip scalerN /= -scaleN1r.
+  apply/mpolyOverZ; first rewrite -sub0r; last rewrite scalerDr.
+    by apply/rpredB; [apply/Cint0 | apply/Cint1].
+  apply/rpredD; rewrite -!scaler_nat !scalerA; last first.
+    rewrite mulVf ?mul1r; last by rewrite pnatr_eq0 -lt0n fact_gt0.
+    apply/mpolyOverZ => //; apply/rpred_horner; last by rewrite mpolyOverX.
+    by apply/polyOver_nderivn/F_over.
+  rewrite -[X in (_ * X`!%:R)](prednK p_gt0) factS natrM mulrCA mulVf ?mul1r.
+    apply/mpolyOverZ; first by rewrite mulr1 Cint_Cnat ?Cnat_nat.
+    apply/rpred_sum => i_sum _; apply/mpolyOverZ => //.
+    by apply/rpred_horner; rewrite ?G_over ?mpolyOverX.
+  by rewrite pnatr_eq0 -lt0n fact_gt0.
++ by move=> Q Q_in; apply/rpredZ/(J_msym Q_in).
+apply/(leq_trans (msizeZ_le _ _) _)/J_msize.
 Qed.
 
 Lemma JB_divp : 
-   ((J - \prod_(i < l.+1) (- (c ^+ (p * l.+1) * a i * (F i)^`N(p.-1).['X_i].@[alpha] *+ (p.-1) `!))) 
-         / p`!%:R) \is a Cint.
+   ((J - c ^+ (\sum_(i < l.+1) (p * l.+1)) * (\prod_(i < l.+1) (- ((p.-1)`!%:R * a i) *: 
+     (F i)^`N(p.-1).['X_i])).@[alpha]) / p`!%:R) \is a Cint.
 Proof.
-set x := \prod_(_ | _) _.
-suff : ((J - x) / (\prod_(i < l.+1) p`!%:R)) \is a Cint.
-  rewrite prodr_const /= card_ord exprS; set pp := _%:R ^+ _ => H.
+set x := \prod_(_ | _) _; set y := _ * x.@[alpha].
+suff : ((J - y) / (p%:R * \prod_(i < l.+1) (p.-1)`!%:R)) \is a Cint.
+  rewrite prodr_const /= card_ord exprS; set pp := _%:R ^+ _.
+  rewrite mulrA -[X in X%:R](prednK p_gt0) -natrM -factS (prednK p_gt0) => H.
   have pp_neq0 : pp != 0 by apply:expf_neq0; rewrite pnatr_eq0 -lt0n fact_gt0.
   rewrite -[X in X \is a Cint]mulr1 -[X in _ * X](divff pp_neq0) mulf_div.
-  by rewrite (mulrC (J - x)) -mulrA rpredM // Cint_Cnat ?rpredX ?Cnat_nat.
-have eq_Jx_div : 
-  (\prod_(i < l.+1) (c ^+ (p * l.+1))) * ((\prod_(i < l.+1) ((p`!%:R)^-1 *: Jip i)) -
-  \prod_(i < l.+1) ((- a i * (p%:R)^-1) *: ((F i)^`N(p.-1)).['X_i])).@[alpha] = 
-       (J - x) / \prod_(i < l.+1) p`!%:R.
-  rewrite mevalB mulrDr mulrN [in RHS]mulrDl mulNr.
-  congr (_ - _).
-    rewrite eq_J_mpoly -mulrA prodrXr.  
-    congr (_ * _); rewrite !rmorph_prod /= -prodf_div.
-    by apply: eq_bigr => i _; rewrite mevalZ mulrC. 
-  rewrite rmorph_prod /= -big_split /= /x -prodf_div.
-  apply: eq_bigr => i _; rewrite !mevalZ !mulrA -[in RHS]mulr_natr !mulrN.
-  set y1 := _ * a i; set y2 := _.@[alpha].
-  
-
-rewrite eq_J_mpoly mulrDl -prodrXr -!mulrA.
-rewrite [X in _ * X]mulrC -mevalZ.
-set u := _ * (_ *: _).@[alpha].
-have -> : (- x / \prod_(i < l.+1) p`!%:R) = 
-  (\prod_(i < l.+1) c ^+ (p * l.+1)) * ( - \prod_(i < l.+1)  
-rewrite /x.
-
-Search _ (_ *+ _) (_ *: _).
-
-
-About big_split.
-
-Search _ meval.
-
-rewrite /J /x /= -prodrXr -big_split /= mulrDl /= -!prodf_div.
-
-
-
-
-
-pose q0 := (\prod_(i < l.+1) ((\sum_(j < l.+1) a j *: (G i).['X_j]))).
-pose q1' := (\prod_(i < l.+1) - (c ^+ (p * l.+1) *: ((\sum_(j < l.+1) (a j) *: (G i).['X_j]) *+ p
-          + a i *: (F i)^`N(p.-1).['X_i]) )).
-have eq_J_q1' : \prod_(i < l.+1) ((c ^+ (p * l.+1) * ((p.-1)`!%:R)^-1) *: Jip i) = q1'.
-  apply/eq_bigr=> i _; rewrite Eq_JGip scalerN -scalerA; congr (- (_ *: _)).
-  rewrite scalerDr; congr (_ + _).
-    rewrite -scaler_nat scalerA -scaler_nat; congr (_ *: _).
-    rewrite mulrC -{1}(prednK p_gt0) factS (prednK p_gt0) natrM -mulrA divff.
-      by rewrite mulr1.
-    by rewrite pnatr_eq0 -lt0n fact_gt0.
-  rewrite -scaler_nat [LHS]scalerA mulrC divff ?scale1r //.
-  by rewrite pnatr_eq0 -lt0n fact_gt0.
-pose q1 := (\prod_(i < l.+1) - (c ^+ (p * l.+1) * ((\sum_(j < l.+1) (a j) * (G i).['X_j].@[alpha]) *+ p
-          + a i * (F i)^`N(p.-1).['X_i].@[alpha]) )).
-have eq_J_q1 : \prod_(i < l.+1) (c ^+ (p * l.+1) * Ji i / (p.-1)`!%:R) = q1.
-  apply/eq_bigr=> i _; rewrite Eq_JGi mulrN -!mulNr -mulrA mulrDl.
-  congr (_ *( _ + _)).
-    rewrite -mulr_natr -{1}(prednK p_gt0) factS (prednK p_gt0) natrM.
-    rewrite mulrA -[in RHS]mulr_natr -[RHS]mulr1 -!mulrA divff //.
-    by rewrite pnatr_eq0 -lt0n fact_gt0.
-  by rewrite -mulr_natr -!mulrA divff ?mulr1 // pnatr_eq0 -lt0n fact_gt0.
-
-have eq_q1_q0 : q1 = (-1) ^+ (\sum_(i < l.+1) 1%N) * c ^+ (\sum_(i < l.+1) p * l.+1) * q0.@[alpha].
-  rewrite /q1 prodrN -mulrA; congr (_ * _).
-    by rewrite cardT sum1_size /index_enum -enumT.
-  rewrite big_split /= prodrXr; congr (_ * _).
-  rewrite /q0 rmorph_prod /=.
-  apply: eq_bigr => i _.
-  rewrite mevalD mevalMn.
-  congr (_*+ _ + _).
-    rewrite rmorph_sum /=.
-    by apply: eq_bigr => j _; rewrite mevalZ.
-  by rewrite mevalZ.
-rewrite eq_J_q1 eq_q1_q0 -mulrA rpredMsign. 
-apply: (sym_fundamental_seqroots_for_leq part_partition) => //.
-+ rewrite /q0; apply/rpred_prod => i _; apply/rpredD.
-    apply/rpredMn/rpred_sum => j _; apply/rpredZ_Cint => //.
-    rewrite /G horner_sum; apply/rpred_sum => k _; apply/rpred_horner.
-      apply/polyOver_derivn/polyOver_nderivn; rewrite /F.
-      apply/rpredM.
-        by apply/rpredX/rpred_prod => i1 _; rewrite polyOverXsubC mpolyOverX.
-      by rewrite /T; apply/rpred_prod => i1 _; rewrite polyOverXsubC mpolyOverX.
-    by rewrite mpolyOverX.
-  apply/rpredZ_Cint => //; apply/rpred_horner; last by rewrite mpolyOverX.
-  apply/polyOver_nderivn; rewrite /F; apply/rpredM.
-    by apply/rpredX/rpred_prod => i1 _; rewrite polyOverXsubC mpolyOverX.
-  by rewrite /T; apply/rpred_prod => i1 _; rewrite polyOverXsubC mpolyOverX.
-+ move=> Q Q_in; apply/issym_forP => s s_on.
+  by rewrite (mulrC (J - _)) -mulrA rpredM // Cint_Cnat ?rpredX ?Cnat_nat.
+rewrite mulrDl mulNr eq_J_mpoly mulrAC -mulrA -mevalZ /y -mulrA -mulrBr.
+rewrite [X in _ - X]mulrC -mevalZ -mevalB.
+apply: (sym_fundamental_seqroots_for_leq part_partition) => //; first last.
++ apply/(leq_trans (msizeD_le _ _)); rewrite msizeN geq_max; apply/andP; split.
+    by apply/(leq_trans (msizeZ_le _ _))/J_msize.
+  apply/(leq_trans (msizeZ_le _ _))/(leq_trans (msize_prod _ _)).
+  rewrite leq_subLR.
+  have : (\sum_(i < l.+1) msize (- ((p.-1)`!%:R * a i) *: ((F i)^`N(p.-1)).['X_i])
+    <= \sum_(i < l.+1) p * l.+1)%N.
+    apply: leq_sum => i _; apply/(leq_trans (msizeZ_le _ _)).
+    have p_ord : (p.-1 < size (F i))%N.
+      by rewrite size_F mulnS (prednK p_gt0) leq_addr.
+    have := (F_msize (Ordinal p_ord) i); rewrite nderivn_def.
+    by rewrite hornerMn -scaler_nat msizeZ // pnatr_eq0 -lt0n fact_gt0.
+  move/leq_ltn_trans; apply; rewrite -[X in (X < _)%N]add0n ltn_add2r.
+  by rewrite sum_nat_const muln1 cardT size_enum_ord.
++ move=> Q Q_in; apply/rpredB/rpredZ; first by apply/rpredZ/(J_msym Q_in).
+  apply/issym_forP => s s_on.
   have := (constantP 0 _ (a_constant Q_in)).
   set sa := [seq _ | _ in _]; move => [a_c eq_a_c].
-  rewrite /q0 [RHS](reindex_inj (@perm_inj _ s)) rmorph_prod /=.
-  apply/eq_bigr => i_prod _.
-  rewrite rmorphD rmorphMn rmorph_sum /=.
-  congr ((_ *+ _) + _).
-    rewrite [RHS](reindex_inj (@perm_inj _ s)) /=.
-    apply/eq_bigr => i_a _; rewrite msymZ.
-    congr (_ *: _).
-      case: (boolP (i_a \in Q)) => [i_a_in|]; last first.
-        by move/(out_perm s_on) => ->.
-      have i_a_in_seq : a i_a \in sa by apply: map_f; rewrite mem_enum.
-      have : a (s i_a) \in sa. 
-        by apply: map_f; rewrite mem_enum (perm_closed _ s_on).
-      rewrite eq_a_c; move/nseqP => [-> _].
-      by move: i_a_in_seq; rewrite eq_a_c; move/nseqP => [ -> _].
-    rewrite /G !horner_sum rmorph_sum /=.
-    apply/eq_bigr => i_der _.
-    rewrite -horner_map /= msymX /=.
-    congr (_ .[ _] ). 
-      rewrite -derivn_map -nderivn_map rmorphM /=; congr (((_ * _)^`N(_)) ^`(_)).
-        rewrite rmorphX /=; congr (_ ^+ _).
-        rewrite [RHS](reindex_inj (@perm_inj _ s)) /= rmorph_prod /=.
-        apply/eq_bigr => i_last _; rewrite rmorphB /= map_polyX map_polyC /=.
-        congr (_ - _%:P); rewrite msymX; congr mpolyX.
-        apply/mnmP => j; rewrite mnmE !mnm1E; congr nat_of_bool.
-        by apply/eqP/eqP => [-> | <-]; rewrite ?permKV ?permK.
-      rewrite /T rmorph_prod /= [RHS](reindex_inj (@perm_inj _ s)) /=.
-      apply/congr_big => //.
-        move=> j; apply/negP/negP => H1 /eqP. 
-          by move/perm_inj => H2; apply: H1; rewrite H2.
-        by move=> H2; apply: H1; rewrite H2.
-      move=> i_last _; rewrite rmorphB /= map_polyX map_polyC /=.
-      congr (_ - _%:P); rewrite msymX; congr mpolyX.
-      apply/mnmP => j; rewrite mnmE !mnm1E; congr nat_of_bool.
-      by apply/eqP/eqP => [-> | <-]; rewrite ?permKV ?permK.
-    congr mpolyX; apply/mnmP => i_last; rewrite mnmE !mnm1E; congr nat_of_bool.
-      by apply/eqP/eqP => [-> | <-]; rewrite ?permKV ?permK.
-  rewrite msymZ -horner_map /= msymX -nderivn_map /= /F rmorphM /=.
-  congr (_ *: ((_ * _)^`N( _)).[ _]).
-  + case: (boolP (i_prod \in Q)) => [i_a_in|]; last first.
+  rewrite [RHS](reindex_inj (@perm_inj _ s)) rmorph_prod /=.
+  apply/eq_bigr => i_prod _; rewrite msymZ.
+  congr (- (_ * _) *: _).
+    case: (boolP (i_prod \in Q)) => [i_prod_in|]; last first.
       by move/(out_perm s_on) => ->.
-    have i_a_in_seq : a i_prod \in sa by apply: map_f; rewrite mem_enum.
+    have i_prod_in_seq : a i_prod \in sa by apply: map_f; rewrite mem_enum.
     have : a (s i_prod) \in sa. 
       by apply: map_f; rewrite mem_enum (perm_closed _ s_on).
     rewrite eq_a_c; move/nseqP => [-> _].
-    by move: i_a_in_seq; rewrite eq_a_c; move/nseqP => [ -> _].
-  + rewrite rmorphX rmorph_prod; congr (_ ^+ _). 
-    rewrite [RHS](reindex_inj (@perm_inj _ s)) /=.
-    apply/eq_bigr => i_last _; rewrite rmorphB /= map_polyX map_polyC /=.
-    congr (_ - _%:P); rewrite msymX; congr mpolyX.
-    apply/mnmP => j; rewrite mnmE !mnm1E; congr nat_of_bool.
-    by apply/eqP/eqP => [-> | <-]; rewrite ?permKV ?permK.
-  + rewrite /T rmorph_prod /= [RHS](reindex_inj (@perm_inj _ s)) /=.
+    by move: i_prod_in_seq; rewrite eq_a_c; move/nseqP => [ -> _].
+  rewrite -horner_map /= msymX /=.
+  congr (_ .[ _] ); first rewrite -nderivn_map rmorphM /=.
+    congr (((_ * _)^`N(_))); first rewrite rmorphX /=.
+      congr (_ ^+ _); rewrite [RHS](reindex_inj (@perm_inj _ s)) rmorph_prod /=.
+      apply/eq_bigr => i_last _; rewrite rmorphB /= map_polyX map_polyC /=.
+      congr (_ - _%:P); rewrite msymX; congr mpolyX.
+      apply/mnmP => j; rewrite mnmE !mnm1E; congr nat_of_bool.
+      by apply/eqP/eqP => [-> | <-]; rewrite ?permKV ?permK.
+    rewrite /T rmorph_prod /= [RHS](reindex_inj (@perm_inj _ s)) /=.
     apply/congr_big => //.
       move=> j; apply/negP/negP => H1 /eqP. 
         by move/perm_inj => H2; apply: H1; rewrite H2.
@@ -656,32 +516,65 @@ apply: (sym_fundamental_seqroots_for_leq part_partition) => //.
     congr (_ - _%:P); rewrite msymX; congr mpolyX.
     apply/mnmP => j; rewrite mnmE !mnm1E; congr nat_of_bool.
     by apply/eqP/eqP => [-> | <-]; rewrite ?permKV ?permK.
-  + congr mpolyX; apply/mnmP => i_last; rewrite mnmE !mnm1E; congr nat_of_bool.
-    by apply/eqP/eqP => [-> | <-]; rewrite ?permKV ?permK.
-have -> : q0 =  ((- (c ^+ (p * l.+1)))^-1) ^+ l.+1 *: q1'.
-  rewrite /q0 /q1'.
-  rewrite [in RHS](eq_bigr (fun i => 
-     ( - c ^+ (p * l.+1) *:
-      ((\sum_(j < l.+1) a j *: (G i).['X_j]) *+ p + a i *: ((F i)^`N(p.-1)).['X_i])))); last first.
-    by move=> i _; rewrite scaleNr.
-  rewrite scaler_prodl cardT size_enum_ord scalerA mulrC.
-  set x := \prod_(_ | _) _; set y := - _ ^+ _.
-  rewrite exprVn -expr_div_n divff ?expr1n ?scale1r // /y oppr_eq0 expf_eq0.
-  by rewrite negb_and c_neq0 orbT.
-apply/(leq_trans (msizeZ_le _ _)).
-rewrite -eq_J_q1' scaler_prodl.
-apply/(leq_trans (msizeZ_le _ _)) => /=.
-apply/(leq_trans (msize_prod _ _)).
-rewrite sum1_card cardT size_enum_ord subSS.
-apply/(leq_trans (leq_subr _ _)).
-apply: (big_rec2 (fun x y => (x <= y)%N) (leqnn _)) => i x y _ Hxy.
-by apply/(leq_add (msize_Jip _) Hxy).
+  congr mpolyX; apply/mnmP => i_last; rewrite mnmE !mnm1E; congr nat_of_bool.
+  by apply/eqP/eqP => [-> | <-]; rewrite ?permKV ?permK.
+rewrite invfM -!scalerA -prodfV -scaler_prod -scalerBr.
+pose P := (fun i (k : bool) => if k
+  then (- (p%:R) *: \sum_(j < l.+1) ((a j) *: (G i).['X_j]))
+  else (- a i *: (F i)^`N(p.-1).['X_i])) : 'I_l.+1 -> bool -> {mpoly complexR[l.+1]}.
+have -> : \prod_(i < l.+1) ((p.-1)`!%:R^-1 *: Jip i) = 
+   \prod_(i < l.+1) \sum_(j : bool) P i j.
+  apply/eq_bigr=> i_prod _; rewrite Eq_JGip scalerN scalerDr opprD.
+  set v := index_enum bool_finType.
+  have -> : v = [:: true; false] by rewrite /v /index_enum unlock.
+  rewrite big_cons big_seq1 /P /= !scaleNr.
+  congr (- _ - _); rewrite -scaler_nat scalerA; last first.
+    by rewrite mulVf ?scale1r // pnatr_eq0 -lt0n fact_gt0.
+  rewrite -[X in _ * X`!%:R](prednK p_gt0) factS natrM mulrCA mulVf; last first.
+    by rewrite pnatr_eq0 -lt0n fact_gt0.
+  by rewrite (prednK p_gt0) mulr1.
+rewrite bigA_distr_bigA /=; set z := \prod_(_ | _) _ *: x.
+pose f_false := finfun (fun _ : 'I_l.+1 => false).
+have -> : z = \prod_(i < l.+1) P i (f_false i).
+  rewrite /z /x -scaler_prod.
+  apply: eq_bigr => i _; rewrite scaleNr scalerN scalerA mulrA mulVf ?mul1r.
+    by rewrite /P /f_false ffunE scaleNr.
+  by rewrite pnatr_eq0 -lt0n fact_gt0.
+rewrite (bigD1 f_false) //= addrAC subrr add0r scaler_sumr.
+apply: rpred_sum => f Hf.
+have [i_f] : exists i : 'I_l.+1, f i != f_false i.
+  apply/existsP; rewrite -negb_forall.  
+  apply/negP => /forallP Hfi; move/negP: Hf; apply; apply/eqP/ffunP => j.
+  by move/eqP: (Hfi j).
+rewrite /f_false ffunE /= eqbF_neg => /negPn => Hfi.
+rewrite (bigD1 i_f) //= scalerAl [X in _ *: X]/P Hfi scalerA mulrN mulVf; last first.
+  by rewrite pnatr_eq0 -lt0n p_gt0.
+apply/rpredM.
+  apply/mpolyOverZ; first by rewrite rpredN Cint1.
+  apply/rpred_sum => i _; apply/mpolyOverZ => //; apply/rpred_horner.
+    by apply/G_over.
+  by apply/mpolyOverX.
+apply/rpred_prod => i _; rewrite /P.
+case: ifP => _; apply/mpolyOverZ; rewrite ?rpredN //.
++ by apply/Cint_Cnat/Cnat_nat.
++ apply/rpred_sum => j _; apply/mpolyOverZ=> //; apply/rpred_horner.
+    by apply/G_over.
+  by apply/mpolyOverX.
+apply/rpred_horner; last by apply/mpolyOverX.
+by apply/polyOver_nderivn/F_over.
 Qed.
 
+
 Lemma JC_ndivp : 
-   ~~ ((\prod_(i < l.+1) (- a i * (F i)^`N(p.-1).['X_i].@[alpha] *+ (p.-1) `!) 
-         / p`!%:R) \is a Cint).
+
+   ~~ (((c ^+ (\sum_(i < l.+1) (p * l.+1)) * 
+     (\prod_(i < l.+1) (- ((p.-1)`!%:R * a i) *: 
+     (F i)^`N(p.-1).['X_i])).@[alpha]) / p`!%:R) \is a Cint).
 Proof.
+
+Search _ deriv.
+
+
 suff : \prod_(i < l.+1) (- a i * ((F i)^`N(p.-1)).['X_i].@[alpha] *+ (p.-1)`!) 
                  / p%:R \isn't a Cint.
   set x := \prod_(_ | _) _.

@@ -560,6 +560,66 @@ Qed.
 
 End perm_ajouts.
 
+
+Section poly_ajouts.
+
+(* TODO : this is very general and should be migrated to poly *)
+Lemma derivn_add {R : ringType} (P : {poly R}) i j : P^`(i+j) = P^`(i)^`(j).
+Proof. by rewrite addnC [LHS]iter_add. Qed.
+
+
+(* This one already exists in cauchyreals, with name size_derivn
+   but it requires a structure that is to strong: realDomainType. *)
+Lemma size_deriv_char (aT : idomainType) (P : {poly aT}) :
+  [char aT] =i pred0 -> (size (deriv P) = (size P).-1)%N.
+Proof.
+rewrite charf0P => Hnatr_eq0.
+have [lep1|lt1p] := leqP (size P) 1.
+  by rewrite {1}[P]size1_polyC // derivC size_poly0 -subn1 (eqnP lep1).
+rewrite size_poly_eq //. 
+rewrite -mulr_natl mulf_eq0 Hnatr_eq0 -subn2 -subSn // subn2.
+by rewrite lead_coef_eq0 -size_poly_eq0 -(subnKC lt1p).
+Qed.
+
+Lemma size_derivn_char (aT : idomainType) (P : {poly aT}) j :
+  [char aT] =i pred0 -> (size (P^`(j)) = (size P) - j)%N.
+Proof.
+move=> Hchar.
+elim: j => [ | j ihj]; first by rewrite subn0 derivn0.
+by rewrite derivnS subnS -ihj size_deriv_char.
+Qed.
+
+Lemma derivnM (R : ringType) (p q : {poly R}) (n : nat) :
+  (p * q)^`(n) = \sum_(i < n.+1) (p^`(i) * q^`(n - i)) *+ 'C(n, i).
+Proof.
+elim: n => [|n ihn].
+  by rewrite derivn0 big_ord_recl big_ord0 /= binn addr0 mulr1n.
+rewrite derivnS ihn linear_sum /=.
+have -> : \sum_(i < n.+1) ((p^`(i) * q^`(n - i)) *+ 'C(n, i))^`() =
+  \sum_(0 <= i < n.+1) (p^`(i.+1) * q^`(n.+1 - i.+1) *+ 'C(n, i)) +
+  \sum_(0 <= i < n.+1) (p^`(i) * q^`(n.+1 - i) *+ 'C(n, i)).
+  rewrite -big_split /= big_mkord.
+  apply/eq_bigr => i _; rewrite derivMn derivM mulrnDl.
+  by congr (_ + _ * _ *+ _); rewrite -derivnS subSn // -ltnS.
+have n_gt0 : (0 <= n)%N by rewrite leq0n.
+rewrite big_nat_recl // bin0 -[X in _ *+ X](bin0 n.+1).
+rewrite (
+
+
+Search _ binomial.
+
+Lemma big_nat_recr n m F : m ≤ n →
+  \big[*%M/1]_(m ≤ i < n.+1) F i = (\big[*%M/1]_(m ≤ i < n) F i) × F n.
+Lemma big_nat_recl n m F : m ≤ n →
+  \big[op/idx]_(m ≤ i < n.+1) F i =
+     op (F m) (\big[op/idx]_(m ≤ i < n) F i.+1).
+Lemma big_add1 m n (P : pred nat) F :
+  \big[op/idx]_(m.+1 ≤ i < n | P i) F i =
+     \big[op/idx]_(m ≤ i < n.-1 | P (i.+1)) F (i.+1).
+
+End poly_ajouts.
+
+
 Section mpoly_ajouts.
 
 Lemma mnm1_inj n : injective (@mnm1 n).
