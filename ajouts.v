@@ -589,33 +589,102 @@ elim: j => [ | j ihj]; first by rewrite subn0 derivn0.
 by rewrite derivnS subnS -ihj size_deriv_char.
 Qed.
 
-Lemma derivnM (R : ringType) (p q : {poly R}) (n : nat) :
-  (p * q)^`(n) = \sum_(i < n.+1) (p^`(i) * q^`(n - i)) *+ 'C(n, i).
+Section Poly_mrootRing.
+
+Import Pdiv.Ring.
+
+Variable R : ringType.
+
+Lemma derivX_XsubC (c : R) n :
+  (('X - c%:P) ^+ n) ^`() = ('X - c%:P) ^+ n.-1  *+ n.
+Proof.
+case: n; first by rewrite expr0 derivC.
+elim => [| n ihn]; first by rewrite expr1 /= expr0 derivXsubC.
+rewrite -addn1 exprD !derivE expr1 ihn mulr1 -pred_Sn.
+by rewrite addn1 /= mulrnAl -!exprSr -mulrSr.
+Qed.
+
+Definition mroot (p : {poly R}) m x := rdvdp (('X - x%:P) ^+ m) p.
+
+Lemma mrootP p m x :
+  reflect (exists q, p = q * ('X - x%:P) ^+ m ) (mroot p m x).
+Proof.
+by apply:(iffP (Pdiv.RingMonic.rdvdpP _ p)); rewrite ?monic_exp ?monicXsubC.
+Qed.
+
+Lemma mrootdP p m x :
+  reflect (forall i : 'I_m, mroot p^`(i) (m - i) x) (mroot p m x).
+Proof.
+apply:(iffP idP); last first.
+  case: m.
+    by move=> H; apply/mrootP; exists p; rewrite expr0 mulr1.
+  by move=> n /(_ (ord0)); rewrite subn0 derivn0.
+move=>  H; case; elim=> [/=  _|n IHn Hn]; first by rewrite subn0.
+apply/mrootP; rewrite derivnS /=.
+move/(ltn_trans(ltnSn n)):Hn =>Hn1.
+move/mrootP :(IHn Hn1)=>[r /= Hr].
+rewrite Hr derivM derivX_XsubC -{1}[(m -n)%N]prednK; last by rewrite subn_gt0.
+exists (r^`() * ('X - x%:P) + r *+ (m-n)).
+by rewrite mulrDl exprS mulrA mulrnAl subnS mulrnAr.
+Qed.
+
+Lemma mroot_root p m x :
+  (0 < m)%N -> mroot p m x -> root p x.
+Proof.
+move=> Hle /mrootP [q Heq]; apply/factor_theorem.
+exists (q * ('X - x%:P)^+ m.-1).
+by rewrite Heq -{1}(prednK Hle) exprSr mulrA.
+Qed.
+
+Lemma mroot0 p x : mroot p 0 x.
+Proof. by apply/mrootP; rewrite expr0; exists p; rewrite mulr1. Qed.
+
+Lemma root_mroot p x : root p x -> mroot p 1 x.
+Proof. by move=> /factor_theorem H; apply/mrootP; rewrite expr1. Qed.
+
+End Poly_mrootRing.
+
+Section Poly_mrootCRing.
+
+Variable R : comRingType.
+
+Lemma mrootM (p : {poly R}) mp q mq x :
+  mroot p mp x -> mroot q mq x -> mroot (p * q) (mp + mq) x.
+Proof.
+move=> /mrootP [pr Hpr] /mrootP [qr Hqr]; apply/mrootP.
+exists (pr * qr); rewrite Hpr Hqr.
+by rewrite -!mulrA !(mulrC qr) exprD -!mulrA.
+Qed.
+
+Lemma mrootX (p : {poly R}) n x : root p x -> mroot (p ^+ n) n x.
+Proof.
+move=> H.
+elim: n => [|n ihn]; first by apply: mroot0.
+by rewrite exprS -add1n; apply: mrootM => //; apply: root_mroot.
+Qed.
+
+Lemma mrootZ (p : {poly R}) n c x : mroot p n x -> mroot (c *: p) n x.
+Proof.
+move=> /mrootP [pr Hpr]; apply/mrootP.
+by exists (c *: pr); rewrite Hpr scalerAl.
+Qed.
+
+End Poly_mrootCRing.
+
+Lemma derivnMXsubX (R : comRingType) (p : {poly R}) (c : R) (n : nat) :
+  (('X - c%:P) ^+ n * p)^`(n).[c] = p.[c] *+ n`!.
 Proof.
 elim: n => [|n ihn].
-  by rewrite derivn0 big_ord_recl big_ord0 /= binn addr0 mulr1n.
-rewrite derivnS ihn linear_sum /=.
-have -> : \sum_(i < n.+1) ((p^`(i) * q^`(n - i)) *+ 'C(n, i))^`() =
-  \sum_(0 <= i < n.+1) (p^`(i.+1) * q^`(n.+1 - i.+1) *+ 'C(n, i)) +
-  \sum_(0 <= i < n.+1) (p^`(i) * q^`(n.+1 - i) *+ 'C(n, i)).
-  rewrite -big_split /= big_mkord.
-  apply/eq_bigr => i _; rewrite derivMn derivM mulrnDl.
-  by congr (_ + _ * _ *+ _); rewrite -derivnS subSn // -ltnS.
-have n_gt0 : (0 <= n)%N by rewrite leq0n.
-rewrite big_nat_recl // bin0 -[X in _ *+ X](bin0 n.+1).
-rewrite (
+  by rewrite /= expr0 mul1r.
+rewrite derivSn /= derivM derivnD deriv_exp derivXsubC mul1r hornerD.
+rewrite mulrnAl derivnMn hornerMn ihn -mulrnA factS mulnC.
+apply/eqP; rewrite eq_sym addrC -subr_eq subrr eq_sym; apply/eqP/rootP.
+have /mrootdP : mroot (('X - c%:P) ^+ n.+1 * p^`()) n.+1 c.
+  by apply/mrootP; exists p^`(); rewrite mulrC.
+move/(_ (Ordinal (ltnSn n))) => /=; rewrite subSnn.
+by apply/(mroot_root (ltn0Sn 0%N)).
+Qed.
 
-
-Search _ binomial.
-
-Lemma big_nat_recr n m F : m ≤ n →
-  \big[*%M/1]_(m ≤ i < n.+1) F i = (\big[*%M/1]_(m ≤ i < n) F i) × F n.
-Lemma big_nat_recl n m F : m ≤ n →
-  \big[op/idx]_(m ≤ i < n.+1) F i =
-     op (F m) (\big[op/idx]_(m ≤ i < n) F i.+1).
-Lemma big_add1 m n (P : pred nat) F :
-  \big[op/idx]_(m.+1 ≤ i < n | P i) F i =
-     \big[op/idx]_(m ≤ i < n.-1 | P (i.+1)) F (i.+1).
 
 End poly_ajouts.
 
@@ -3088,85 +3157,6 @@ End ExtractSeq.
 *)
 
 
-Section Poly_mrootRing.
-
-Variable R : ringType.
-
-Lemma derivX_XsubC (c : R) n :
-  (('X - c%:P) ^+ n) ^`() = ('X - c%:P) ^+ n.-1  *+ n.
-Proof.
-case: n; first by rewrite expr0 derivC.
-elim => [| n ihn]; first by rewrite expr1 /= expr0 derivXsubC.
-rewrite -addn1 exprD !derivE expr1 ihn mulr1 -pred_Sn.
-by rewrite addn1 /= mulrnAl -!exprSr -mulrSr.
-Qed.
-
-Definition mroot (p : {poly R}) m x := Pdiv.CommonRing.rdvdp (('X - x%:P) ^+ m) p.
-
-Lemma mrootP p m x :
-  reflect (exists q, p = q * ('X - x%:P) ^+ m ) (mroot p m x).
-Proof.
-by apply:(iffP (Pdiv.RingMonic.rdvdpP _ p)); rewrite ?monic_exp ?monicXsubC.
-Qed.
-
-Lemma mrootdP p m x :
-  reflect (forall i : 'I_m, mroot p^`(i) (m - i) x) (mroot p m x).
-Proof.
-apply:(iffP idP); last first.
-  case: m.
-    by move=> H; apply/mrootP; exists p; rewrite expr0 mulr1.
-  by move=> n /(_ (ord0)); rewrite subn0 derivn0.
-move=>  H; case; elim=> [/=  _|n IHn Hn]; first by rewrite subn0.
-apply/mrootP; rewrite derivnS /=.
-move/(ltn_trans(ltnSn n)):Hn =>Hn1.
-move/mrootP :(IHn Hn1)=>[r /= Hr].
-rewrite Hr derivM derivX_XsubC -{1}[(m -n)%N]prednK; last by rewrite subn_gt0.
-exists (r^`() * ('X - x%:P) + r *+ (m-n)).
-by rewrite mulrDl exprS mulrA mulrnAl subnS mulrnAr.
-Qed.
-
-Lemma mroot_root p m x :
-  (0 < m)%N -> mroot p m x -> root p x.
-Proof.
-move=> Hle /mrootP [q Heq]; apply/factor_theorem.
-exists (q * ('X - x%:P)^+ m.-1).
-by rewrite Heq -{1}(prednK Hle) exprSr mulrA.
-Qed.
-
-Lemma mroot0 p x : mroot p 0 x.
-Proof. by apply/mrootP; rewrite expr0; exists p; rewrite mulr1. Qed.
-
-Lemma root_mroot p x : root p x -> mroot p 1 x.
-Proof. by move=> /factor_theorem H; apply/mrootP; rewrite expr1. Qed.
-
-End Poly_mrootRing.
-
-Section Poly_mrootCRing.
-
-Variable R : comRingType.
-
-Lemma mrootM (p : {poly R}) mp q mq x :
-  mroot p mp x -> mroot q mq x -> mroot (p * q) (mp + mq) x.
-Proof.
-move=> /mrootP [pr Hpr] /mrootP [qr Hqr]; apply/mrootP.
-exists (pr * qr); rewrite Hpr Hqr.
-by rewrite -!mulrA !(mulrC qr) exprD -!mulrA.
-Qed.
-
-Lemma mrootX (p : {poly R}) n x : root p x -> mroot (p ^+ n) n x.
-Proof.
-move=> H.
-elim: n => [|n ihn]; first by apply: mroot0.
-by rewrite exprS -add1n; apply: mrootM => //; apply: root_mroot.
-Qed.
-
-Lemma mrootZ (p : {poly R}) n c x : mroot p n x -> mroot (c *: p) n x.
-Proof.
-move=> /mrootP [pr Hpr]; apply/mrootP.
-by exists (c *: pr); rewrite Hpr scalerAl.
-Qed.
-
-End Poly_mrootCRing.
 
 End Theory.
 
