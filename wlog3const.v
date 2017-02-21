@@ -4,7 +4,7 @@ Require Import ssralg ssrnum mxpoly rat poly ssrint polyorder polydiv perm.
 From mathcomp
 Require Import finfun intdiv.
 From structs
-Require Import Cstruct Rstruct.
+Require Import Canalysis Cstruct Rstruct.
 From SsrMultinomials
 Require Import finmap order mpoly.
 From Lind
@@ -408,7 +408,7 @@ apply: (sym_fundamental_seqroots_for_leq part_partition) => //.
   apply/rpred_prod => i_prod _; rewrite Eq_JGip scalerN /= -scaleN1r.
   apply/mpolyOverZ; first rewrite -sub0r; last rewrite scalerDr.
     by apply/rpredB; [apply/Cint0 | apply/Cint1].
-  apply/rpredD; rewrite -!scaler_nat !scalerA; last first.
+  apply/rpredD; rewrite -!scaler_nat !scalerA !scaler_nat; last first.
     rewrite mulVf ?mul1r; last by rewrite pnatr_eq0 -lt0n fact_gt0.
     apply/mpolyOverZ => //; apply/rpred_horner; last by rewrite mpolyOverX.
     by apply/polyOver_nderivn/F_over.
@@ -485,11 +485,11 @@ have -> : \prod_(i < l.+1) ((p.-1)`!%:R^-1 *: Jip i) =
   set v := index_enum bool_finType.
   have -> : v = [:: true; false] by rewrite /v /index_enum unlock.
   rewrite big_cons big_seq1 /P /= !scaleNr.
-  congr (- _ - _); rewrite -scaler_nat scalerA; last first.
+  congr (- _ - _); rewrite -!scaler_nat scalerA !scaler_nat; last first.
     by rewrite mulVf ?scale1r // pnatr_eq0 -lt0n fact_gt0.
   rewrite -[X in _ * X`!%:R](prednK p_gt0) factS natrM mulrCA mulVf; last first.
     by rewrite pnatr_eq0 -lt0n fact_gt0.
-  by rewrite (prednK p_gt0) mulr1.
+  by rewrite (prednK p_gt0) mulr1 scaler_nat.
 rewrite bigA_distr_bigA /=; set z := \prod_(_ | _) _ *: x.
 pose f_false := finfun (fun _ : 'I_l.+1 => false).
 have -> : z = \prod_(i < l.+1) P i (f_false i).
@@ -643,7 +643,7 @@ Qed.
 
 (* **************** Analysis Part *************** *)
 
-Let contFpalpha j i x : Crcontinuity_pt (fun y => (F j).[alpha i * y%:C]) x.
+Let contFpalpha j i x : Crcontinuity_pt (fun y => (F j).[alpha i * RtoC y]) x.
 Proof.
 apply: (@Crcontinuity_pt_ext (fun x => (Fp \Po (alpha i *: 'X)).[x%:C])).
   by move=> y; rewrite horner_comp hornerZ hornerX.
