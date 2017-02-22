@@ -1,3 +1,6 @@
+Require Import Reals.
+From coquelicot
+Require Import Hierarchy.
 From mathcomp Require Import all_ssreflect.
 From mathcomp
 Require Import ssralg ssrnum mxpoly rat poly ssrint polyorder polydiv perm.
@@ -56,6 +59,84 @@ Hypothesis a_constant : {in part, forall P : {set 'I_l.+1},
 
 Hypothesis Lindemann_false : Cexp_span a alpha == 0.
 
+
+Definition T_an : {poly complexR} :=
+  \prod_(i < l.+1) (c *: ('X - (alpha i)%:P)).
+(*
+(**** * Variables to choose the prime number p **** *)
+
+Lemma ex_Mc i :
+ {M : R | forall x : R, 0 <= x <= 1 -> norm T_an.[x *: alpha i] < M}.
+Proof.
+move: (Continuity.bounded_continuity
+          (fun y => (T_an.[y *: (alpha i)])) 0 1) => H.
+have : forall x : R,
+       and (Rle 0 x) (Rle x 1) ->
+       filterlim (fun y : R => T_an.[y *: alpha i]) (locally x)
+           (locally T_an.[x *: alpha i]).
+  move=> x [/RleP H0 /RleP H1].
+  apply: Crcontinuity_pt_filterlim.
+  apply: (@Crcontinuity_pt_ext (fun y => (T_an \Po ((alpha i) *: 'X )).[RtoC y]) ).
+    by move=> z; rewrite horner_comp hornerZ hornerX Cr_scalE mulrC.
+  by apply: Crcontinuity_pt_poly.
+move=> Hb; move: (H Hb) => [M M_H].
+by exists M; move=> x /andP[H0 H1]; apply/RltP; apply: M_H; split; apply/RleP.
+Qed.
+
+Definition M i := sval (ex_Mc i).
+
+Definition A i :=  norm (alpha i) * norm (exp (Rmax 0 (Re_R (-alpha i)))) * M i.
+
+Definition B i :=  norm (alpha i) * M i.
+
+Definition An := ((\max_(i : 'I_n)
+ Num.bound (norm (((- gamma i)%:~C * Cexp(alpha i))%R : complexR)))
+*  \max_(i : 'I_n) (Num.bound (`|A i|)))%N.
+
+Definition Bn := \max_(i : 'I_n) (Num.bound (`|B i|)).
+
+Open Scope nat_scope.
+
+Definition a := c ^ n * (n * An).
+Definition b := c ^ n * Bn.
+
+Lemma p_prop2 :
+  exists p : nat, prime p && (a * b ^ p.-1 < (p.-1)`!) &&  (p > `|k|) &&
+      (p >  `| floorC (T.[0])|) && (p > c).
+Proof.
+destruct (p_prop1 a b) as [q Pq].
+set q' := maxn q (maxn (maxn `|k| c) (`| floorC (T.[0])|)).
+case: (prime_above q') => p Hmax isPrime.
+exists p; rewrite isPrime.
+move: Hmax; rewrite !gtn_max => /and3P [H1 /andP[-> ->] ->].
+by rewrite Pq // -ltnS (ltn_predK H1).
+Qed.
+
+Definition p := xchoose p_prop2.
+
+Lemma prime_p : prime p.
+Proof. by move: (xchooseP p_prop2) => /andP [/andP [/andP [/andP [->]]]]. Qed.
+
+Lemma leq_pk : p > `|k|.
+Proof. by move: (xchooseP p_prop2) => /andP [/andP [/andP [H ->]]]. Qed.
+Hint Resolve leq_pk.
+
+Lemma leq_T : (p > ( `| floorC T.[0]|)).
+Proof. by move: (xchooseP p_prop2) => /andP [/andP [H ->]]. Qed.
+
+Lemma leq_c : c < p.
+Proof. by move: (xchooseP p_prop2) => /andP [/andP [H H1]] ->. Qed.
+
+Lemma majoration : a * b ^ p.-1 < (p.-1)`!.
+Proof. by move:(xchooseP p_prop2) => /andP [/andP [/andP [/andP [H ->]]]]. Qed.
+
+Lemma p_gt0 : (0 < p)%N.
+Proof. by exact: leq_ltn_trans (leq0n _) leq_c. Qed.
+Hint Resolve p_gt0.
+
+Open Scope ring_scope.*)
+
+
 Variable p : nat.
 Hypothesis p_prime : prime p.
 
@@ -64,15 +145,17 @@ Proof. by apply: (prime_gt0 p_prime). Qed.
 
 (* Hypothesis p > ce qu'on veut *)
 
+Hypothesis p_gt_c : (p > `| floorC c |)%N.
+
 Hypothesis p_gt_a : (p > `|  floorC (\prod_(i < l.+1) a i)|)%N.
 
-Hypothesis p_gt_alpha : (p >  `|floorC (c ^+ (\sum_(i < l.+1) l.+1) *
+Hypothesis p_gt_alpha : (p >  `|floorC (c ^+ (\sum_(i < l.+1) l) *
            \prod_(i < l.+1) \prod_(j < l.+1 | j != i) (alpha i - alpha j))|)%N.
 
 
 (* **************** Algebraic Part *************** *)
 
-Definition T (i : 'I_l.+1) : {poly {mpoly complexR[l.+1]}}:=
+Definition T (i : 'I_l.+1) : {poly {mpoly complexR[l.+1]}} :=
   \prod_(j < l.+1 | j != i) ('X - ('X_j)%:P).
 
 Lemma size_T i : size (T i) = l.+1.
@@ -313,22 +396,22 @@ rewrite -sumrMnl; apply: eq_bigr => j; move/Fdalpha_re => ->.
 by rewrite scalerMnr.
 Qed.
 
-Definition J := c ^+ (\sum_(i < l.+1) (p * l.+1)) * \prod_(i < l.+1) Ji i.
+Definition J := c ^+ (\sum_(i < l.+1) (p * l.+1).-1) * \prod_(i < l.+1) Ji i.
 
-Lemma eq_J_mpoly : J = c ^+ (\sum_(i < l.+1) (p * l.+1)) * (\prod_(i < l.+1) (Jip i)).@[alpha].
+Lemma eq_J_mpoly : J = c ^+ (\sum_(i < l.+1) (p * l.+1).-1) * (\prod_(i < l.+1) (Jip i)).@[alpha].
 Proof.
 rewrite /J; congr (_ * _); rewrite rmorph_prod /=.
 by apply: eq_bigr => i _; rewrite Eq_Ji.
 Qed.
 
 Lemma J_msize : 
-   (msize (\prod_(i < l.+1) (Jip i)) <= \sum_(i < l.+1) (p * l.+1))%N.
+   (msize (\prod_(i < l.+1) (Jip i)) <= (\sum_(i < l.+1) (p * l.+1).-1).+1)%N.
 Proof.
-apply/(leq_trans (msize_prod _ _) _); rewrite leq_subLR.
-have : (\sum_(i < l.+1) msize (Jip i) <= \sum_(i < l.+1) (p * l.+1))%N.
-  by apply: leq_sum => i _; apply/msize_Jip.
-move/leq_ltn_trans; apply; rewrite -[X in (X < _)%N]add0n ltn_add2r.
-by rewrite sum_nat_const muln1 cardT size_enum_ord.
+apply/(leq_trans (msize_prod _ _) _); rewrite leq_subLR addnS ltnS.
+apply/(big_ind3 (fun x y z => (x <= y + z)%N)); first by rewrite addn0.
+  move=> x1 x2 x3 y1 y2 y3 H1; move/(leq_add H1).
+  by rewrite addnAC -!addnA [(_ + x3)%N]addnC.
+by move=> i _; apply/(leq_trans (msize_Jip _)); rewrite add1n leqSpred.
 Qed.
 
 Lemma J_msym : {in part, forall Q : {set 'I_l.+1}, 
@@ -422,7 +505,7 @@ apply/(leq_trans (msizeZ_le _ _) _)/J_msize.
 Qed.
 
 Lemma JB_divp : 
-  ((J - c ^+ (\sum_(i < l.+1) (p * l.+1)) * (\prod_(i < l.+1) (- ((p.-1)`!%:R * a i) *: 
+  ((J - c ^+ (\sum_(i < l.+1) (p * l.+1).-1) * (\prod_(i < l.+1) (- ((p.-1)`!%:R * a i) *: 
      (F i)^`N(p.-1).['X_i])).@[alpha]) / (p%:R * \prod_(i < l.+1) (p.-1)`!%:R)) \is a Cint.
 Proof.
 set x := \prod_(_ | _) _; set y := _ * x.@[alpha].
@@ -432,16 +515,16 @@ apply: (sym_fundamental_seqroots_for_leq part_partition) => //; first last.
 + apply/(leq_trans (msizeD_le _ _)); rewrite msizeN geq_max; apply/andP; split.
     by apply/(leq_trans (msizeZ_le _ _))/J_msize.
   apply/(leq_trans (msizeZ_le _ _))/(leq_trans (msize_prod _ _)).
-  rewrite leq_subLR.
-  have : (\sum_(i < l.+1) msize (- ((p.-1)`!%:R * a i) *: ((F i)^`N(p.-1)).['X_i])
-    <= \sum_(i < l.+1) p * l.+1)%N.
-    apply: leq_sum => i _; apply/(leq_trans (msizeZ_le _ _)).
-    have p_ord : (p.-1 < size (F i))%N.
-      by rewrite size_F mulnS (prednK p_gt0) leq_addr.
-    have := (F_msize (Ordinal p_ord) i); rewrite nderivn_def.
-    by rewrite hornerMn -scaler_nat msizeZ // pnatr_eq0 -lt0n fact_gt0.
-  move/leq_ltn_trans; apply; rewrite -[X in (X < _)%N]add0n ltn_add2r.
-  by rewrite sum_nat_const muln1 cardT size_enum_ord.
+  rewrite leq_subLR addnS ltnS.
+  apply/(big_ind3 (fun u v w => (u <= v + w)%N)); first by rewrite addn0.
+    move=> x1 x2 x3 y1 y2 y3 H1; move/(leq_add H1).
+    by rewrite addnAC -!addnA [(_ + x3)%N]addnC.
+  move=> i _; apply/(leq_trans (msizeZ_le _ _)).
+  have p_ord : (p.-1 < size (F i))%N.
+    by rewrite size_F mulnS (prednK p_gt0) leq_addr.
+  have := (F_msize (Ordinal p_ord) i); rewrite nderivn_def.
+  rewrite hornerMn -scaler_nat msizeZ ?pnatr_eq0 -?lt0n ?fact_gt0 //=.
+  by move/leq_trans; apply; rewrite add1n leqSpred. 
 + move=> Q Q_in; apply/rpredB/rpredZ; first by apply/rpredZ/(J_msym Q_in).
   apply/issym_forP => s s_on.
   have := (constantP 0 _ (a_constant Q_in)).
@@ -523,7 +606,7 @@ Qed.
 
 
 Lemma JC_ndivp : 
-   (((c ^+ (\sum_(i < l.+1) (p * l.+1)) * 
+   (((c ^+ (\sum_(i < l.+1) ((p * l.+1).-1)) * 
      (\prod_(i < l.+1) (- ((p.-1)`!%:R * a i) *: 
      (F i)^`N(p.-1).['X_i])).@[alpha]) / (p%:R * \prod_(i < l.+1) (p.-1)`!%:R)) 
        \isn't a Cint).
@@ -549,15 +632,20 @@ have -> : y = ((\prod_(i < l.+1) \prod_(j < l.+1 | j != i) ('X_i - 'X_j)).@[alph
   rewrite horner_exp rmorphX /= horner_prod rmorph_prod /=.
   congr (_ ^+ p); rewrite rmorph_prod /=.
   by apply: eq_bigr => j _; rewrite hornerXsubC.
-rewrite [X in A * X]mulrCA /x -[X in c^+ X]big_distrr /= mulnC exprM -exprMn.
-move=> {x y}; set x := c ^+ _ * _.
+rewrite [X in A * X]mulrCA /x /=.
+have Hc_le :(\sum_(i < p) \sum_(j < l.+1) l <= \sum_(i < l.+1) (p * l.+1).-1)%N.
+  rewrite !sum_nat_const !cardT !size_enum_ord mulnCA leq_mul2l /=.
+  by rewrite mulnS -subn1 addnC -addnBA ?p_gt0 // leq_addr.
+rewrite -(subnK Hc_le) exprD -prodrXr prodr_const cardT size_enum_ord -mulrA -exprMn.
+move=> {x y}; set x := c ^+ _ * _.@[alpha].
 have /CintP [AZ HA] : A \is a Cint by apply/rpred_prod => i _.
+have /CintP [cZ Hc] := c_Cint.
 have /CintP [xZ Hx] : x \is a Cint.
   apply/(sym_fundamental_seqroots_for_leq part_partition) => //=.
-  + apply/rpred_prod => i _; apply/rpred_prod => j _; apply/rpredB/mpolyOverX.
-    by apply/mpolyOverX.
+  + apply/rpred_prod => i _; apply/rpred_prod => j _. 
+    by apply/rpredB/mpolyOverX/mpolyOverX.
   + move=> Q Q_in; apply/issym_forP => s s_on.
-    rewrite [RHS](reindex_inj (@perm_inj _ s)) /= rmorph_prod /=.
+    rewrite [RHS](reindex_inj (@perm_inj _ s)) rmorph_prod /=.
     apply/eq_bigr => i _; rewrite rmorph_prod /=.
     rewrite [RHS](reindex_inj (@perm_inj _ s)) /=.
     apply/congr_big => //= j; first by rewrite (inj_eq (@perm_inj _ s)).
@@ -565,41 +653,38 @@ have /CintP [xZ Hx] : x \is a Cint.
     congr (mpolyX _ _ - mpolyX _ _); apply/mnmP => k; rewrite mnmE !mnm1E /=.
       by congr nat_of_bool; apply/eqP/eqP => [-> | <-]; rewrite ?permK ?permKV.
     by congr nat_of_bool; apply/eqP/eqP => [-> | <-]; rewrite ?permK ?permKV.
-  apply/(leq_trans (msize_prod _ _)); rewrite leq_subLR sum1_card cardT.
-  rewrite size_enum_ord addSn ltnS.
-  apply/(leq_trans _ (leq_addl _ _)).
-  apply: (big_rec2 (fun x y => (x <= y)%N)) => // i y1 y2 _; apply: (leq_add _). 
-  apply/(leq_trans (msize_prod _ _)) => {y1 y2}; rewrite leq_subLR.
+  apply/(leq_trans (msize_prod _ _)); rewrite leq_subLR addnS -big_split ltnS /=.
+  apply/leq_sum => i _; apply/(leq_trans (msize_prod _ _)).
+  rewrite leq_subLR add1n addnS ltnS.
   have H : (l = \sum_(i0 < l.+1 | i0 != i) 1)%N.  
-    rewrite sum1_card.
     have := (cardC (pred1 i)); rewrite card1 => /eqP.
-    by rewrite cardT size_enum_ord add1n eqSS => /eqP ->.
-  rewrite [X in (_ < _ + X.+1)%N]H addnS ltnS -big_split /=.
-  apply: (big_rec2 (fun x y => (x <= y)%N)) => // j y1 y2 i_neqj.
-  apply: (leq_add _); apply/(leq_trans (msizeD_le _ _)); rewrite addn1 geq_max.
-  by rewrite msizeN !msizeX !mdeg1.
+    by rewrite sum1_card cardT size_enum_ord add1n eqSS => /eqP ->.
+  rewrite [X in (_ <= _ + X)%N]H -big_split /=.
+  apply/leq_sum => j j_neqi; apply/(leq_trans (msizeD_le _ _)).
+  by rewrite addn1 geq_max msizeN !msizeX !mdeg1.
+set nc := (_ - _)%N.
 rewrite mulrC; apply/negP; move/CintP => [m]; rewrite mulrA -[_%:~R]mulr1.
 rewrite -[X in _%:~R * X](@mulfV _ p%:R); last by rewrite pnatr_eq0 -lt0n p_gt0.
-rewrite mulrA.
+rewrite [RHS]mulrA.
 have : (p%:R != 0 :> complexR) by rewrite pnatr_eq0 -lt0n p_gt0 //.
-move/divIf => H; move/H => {H}; rewrite HA Hx.
-have -> : (xZ%:~R ^+ p) = (xZ ^ p)%:~R.
-  move=> R; elim: p => [| k ihk]; first by rewrite expr0 expr0z.
-  by rewrite exprS exprSz intrM ihk.
+move/divIf => H; move/H => {H}; rewrite HA Hx Hc -!rmorphX /=.
 have -> : (p%:R = p%:~R :> complexR) by [].
 move/eqP; rewrite -!intrM eqr_int; move/eqP => H.
-have : (p %| AZ * xZ ^ p)%Z by apply/dvdzP; exists m.
-rewrite dvdzE absz_nat abszM abszX (Euclid_dvdM _ _ p_prime).
+have : (p %| AZ * (cZ ^+ nc * xZ ^+ p))%Z by apply/dvdzP; exists m.
+rewrite dvdzE absz_nat !abszM !abszX (Euclid_dvdM _ _ p_prime).
 apply/negP; rewrite negb_or; apply/andP; split.
   rewrite gtnNdvd //.
     have : A != 0 by rewrite /A; apply/prodf_neq0 => i _.
     by rewrite HA intr_eq0 -absz_eq0 -lt0n.
   have -> : AZ = floorC A by rewrite HA intCK.
   by rewrite /A p_gt_a.
-rewrite (Euclid_dvdX _ _ p_prime) negb_and.
+rewrite (Euclid_dvdM _ _ p_prime) !(Euclid_dvdX _ _ p_prime) negb_or !negb_and.
+have -> : cZ = floorC c by rewrite Hc intCK.
+rewrite gtnNdvd /= ?p_gt_c //; last first.
+  by rewrite lt0n absz_eq0 -(intr_eq0 complexR_numDomainType) floorCK.
 apply/orP; left.
 have -> : xZ = floorC x by rewrite Hx intCK.
-have H1 : x  = c ^+ (\sum_(i < l.+1) l.+1) *
+have H1 : x  = c ^+ (\sum_(i < l.+1) l) *
        (\prod_(i < l.+1) \prod_(j < l.+1 | j != i) (alpha i - alpha j)).
   congr (_ * _); rewrite rmorph_prod /=.
   apply/eq_bigr => i _; rewrite rmorph_prod /=.
@@ -615,7 +700,7 @@ Qed.
 
 Lemma J_ndivp : ((J / (p%:R * \prod_(i < l.+1) (p.-1)`!%:R)) \isn't a Cint).
 Proof.
-pose x :=  c ^+ (\sum_(i < l.+1) (p * l.+1)) * (\prod_(i < l.+1) (- ((p.-1)`!%:R * a i) *: 
+pose x :=  c ^+ (\sum_(i < l.+1) (p * l.+1).-1) * (\prod_(i < l.+1) (- ((p.-1)`!%:R * a i) *: 
      (F i)^`N(p.-1).['X_i])).@[alpha].
 rewrite -[J](addr0) -(subrr x) addrCA mulrDl.
 set y := (p%:R * _); apply/negP => HD.
@@ -642,6 +727,9 @@ Qed.
 
 
 (* **************** Analysis Part *************** *)
+
+
+About F.
 
 Let contFpalpha j i x : Crcontinuity_pt (fun y => (F j).[alpha i * RtoC y]) x.
 Proof.
