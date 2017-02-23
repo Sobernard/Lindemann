@@ -167,10 +167,27 @@ Qed.
 
 Lemma b_neq0 i : b i != 0.
 Proof.
+apply/negP => /eqP b_eq0.
 have b_inb : b i \in sroot_b by rewrite ffunE mem_tnth.
 move: (perm_eq_mem perm_eq_b); move/(_ (b i)); rewrite b_inb.
-move/flatten_mapP => [j j_in].
-apply/memPn; rewrite (seqroots_neq0 (poly_a_neq0 j)) polyMin_coef0_neq0. 
+move/flatten_mapP => [j j_in] /(seqrootsP _ (poly_a_neq0 _)). 
+rewrite /sroot_a /poly_a b_eq0.
+have := (polyMinZ_irr (a_algebraic j)); rewrite /irreducible_poly => [] H.
+
+
+Search _ irreducible_poly.
+Print irreducible_poly.
+
+Search _ root (_ %= _).
+eqp_root: forall (R : idomainType) (p q : {poly R}), p %= q -> root p =1 root q
+
+
+apply/memPn; rewrite (seqroots_neq0 (poly_a_neq0 j)). 
+
+Search _ polyMin.
+Search _ separable.separable_poly.
+
+polyMin_coef0_neq0. 
 by apply: a_neq0.  
 Qed.
 

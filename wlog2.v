@@ -265,8 +265,8 @@ Definition sum_gamma := (fun j : 'I_t  =>
 Local Notation "''s_' ( n , k )" := (@mesym n _ k).
 
 Lemma blabla im : 
-  [seq ((sum_gamma im) j) | j : 'I_(ta im).+1] 
-  \is a seqZroots (c ^+ ((msize (mpoly_gamma (mfun_t im))).-1 * (ta im).+1).+1).
+  [fset ((sum_gamma im) j) | j : 'I_(ta im).+1]%fset 
+  \is a setZroots (c ^+ ((msize (mpoly_gamma (mfun_t im))).-1 * (ta im).+1).+1).
 Proof.
 set m := mfun_t im.
 have m_in : m \in msupp R. 

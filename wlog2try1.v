@@ -8,7 +8,7 @@ Require Import Cstruct Rstruct.
 From SsrMultinomials
 Require Import finmap order mpoly.
 From Lind
-Require Import ajouts.
+Require Import ajouts wlog3.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -353,9 +353,7 @@ Lemma wlog2 :
 
 
 
-
-
-Lemma fpart_preim md : perm_eq (preim_seq fpart [::md]) (msupp ('m_md)).
+Lemma fpart_preim md : perm_eq (preim_seq fpart [::md] ) (msupp ('m_md)).
 move=> x.
 
 
