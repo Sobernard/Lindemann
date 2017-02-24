@@ -9,7 +9,7 @@ Require Import finfun intdiv.
 From SsrMultinomials
 Require Import finmap order mpoly.
 From Lind
-Require Import ajouts.
+Require Import seq_ajouts.
 
 Set Implicit Arguments.
 Unset Strict Implicit.

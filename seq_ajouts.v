@@ -2092,23 +2092,27 @@ rewrite (ordnat ord_iS) -mroots_coeff big_tuple mulrCA rpredMsign -coefZ.
 apply/polyOverP; rewrite (eq_bigr (fun i => 'X - (l i)%:P)) // => j _.
 by rewrite ffun_tupleE.
 Qed.*)
+
+Lemma set_roots_inj_over S (ringS : @subringPred T S) (kS : keyed_pred ringS) 
+  c m  (l : T ^ m) :
+  injective l -> [fset (l i) | i : 'I_m]%fset \is a set_roots kS c ->
+  c *: \prod_(i < m) ('X - (l i)%:P) \is a polyOver kS.
+Proof. by move => inj_l; rewrite set_rootsE big_fset //=. Qed.
+
 Lemma seqroots_pred S (ringS : @subringPred T S) (kS : keyed_pred ringS) c m 
-  (l : T ^ m) : injective l -> 
-  [fset (l i) | i : 'I_m]%fset \is a set_roots kS c -> forall i : 'I_m,
-  (c *: 's_(m, i.+1)).@[l] \in kS.
+  (l : T ^ m) : 
+  c *: \prod_(i < m) ('X - (l i)%:P) \is a polyOver kS-> 
+  forall i : 'I_m, (c *: 's_(m, i.+1)).@[l] \in kS.
 Proof.
-move=> inj_l; rewrite /set_roots /=; move=> l_setroots i; rewrite mevalZ.
+move=> l_setroots i; rewrite mevalZ.
 case: (boolP (c == 0)) => [/eqP -> | /negbTE c_neq0].
   by rewrite mul0r; apply: rpred0.
 rewrite -[_.@[ _]](signrMK i.+1) (eq_meval _ (ffun_tupleE _)).
 move: (ltn_ord i); rewrite -ltnS => ord_iS. 
 rewrite (ordnat ord_iS) -mroots_coeff mulrCA rpredMsign -coefZ /=.
 apply/polyOverP; erewrite congr2; first exact: l_setroots; last by [].
-congr (c *: _). apply: (eq_big_perm _ (uniq_perm_eq _ (enum_fset_uniq _) _)).
-  by rewrite map_inj_uniq ?enum_uniq.
-move=> j /=; rewrite -[j \in enum_fset _]/(j \in [fset l i0 | i0 in 'I_m]%fset).
-apply/mapP/imfsetP => [[k k_in ->] | [k /= k_in ->]]; exists k => //.
-by rewrite mem_enum.
+congr (c *: _); rewrite big_map /index_enum -enumT /=.
+by apply: eq_bigr => j _.
 Qed.
 
 (* codom, perm_eq :
@@ -2147,7 +2151,7 @@ apply: (rpredM (rpredX _ (set_roots_lead_coef l_setroots))).
 rewrite -prodrXr -scaler_prod rmorph_prod /=.
 apply: rpred_prod => j _; rewrite -exprZn rmorphX /=.
 apply: rpredX; rewrite mevalZ mevalX !tnth_map /= -mevalZ.
-by apply: seqroots_pred.
+by apply/seqroots_pred/set_roots_inj_over.
 Qed.
 
 
@@ -2170,18 +2174,18 @@ apply: (rpredM (rpredX _ (set_roots_lead_coef l_setroots))).
 rewrite -prodrXr -scaler_prod rmorph_prod /=.
 apply: rpred_prod => j _; rewrite -exprZn rmorphX /=.
 apply: rpredX; rewrite mevalZ mevalX !tnth_map /= -mevalZ.
-by apply: seqroots_pred.
+by apply/seqroots_pred/set_roots_inj_over.
 Qed.
 
 
 (* th fond caché, pour les poly de poly : généraliser pour cacher le poly de poly *)
 Lemma sym_fundamental_seqroots_empil S (ringS : @subringPred T S) 
   (kS : keyed_pred ringS) c n m p (l : T ^ m) :
-  injective l -> [fset (l i) | i : 'I_m]%fset \is a set_roots kS c ->
+  c *: \prod_(i < m) ('X - (l i)%:P) \is a polyOver kS ->
   p \is a (mpolyOver m (mpolyOver n kS)) -> p \is symmetric -> 
   c ^+ (msize p) *: p.@[finfun ((@mpolyC n T) \o l)] \is a mpolyOver n kS.
 Proof.
-move=> l_inj l_setroots p_over p_sym.  
+move=> l_over p_over p_sym.  
 move: (sym_fundamental_subring p_over p_sym) => [q /andP[/eqP eq_qp /andP[size_le q_over]]].
 rewrite {2}eq_qp meval_comp_mpoly -mul_mpolyC.
 set t := tnth _; rewrite -[_%:MP_[n]](mevalC t) -mevalM mul_mpolyC.
@@ -2194,11 +2198,14 @@ rewrite mpolyXE_id -[msize p](@subnK (\sum_(j < m) i j)); last first.
   by apply: (leq_trans _ (msize_mdeg_lt i_msupp)).
 rewrite exprD mpolyCM -scalerA mevalZ.
 apply: rpredM.
-  by rewrite mpolyOverC; apply: (rpredX _ (set_roots_lead_coef l_setroots)).
+  rewrite mpolyOverC (_: c = lead_coef (c *: \prod_(i < m) ('X - (l i)%:P))).
+    by apply/rpredX/polyOverP.
+  rewrite lead_coefZ (monicP _) ?mulr1 //.
+  by apply/rpred_prod => j _; apply/monicXsubC.
 rewrite rmorphX /= -prodrXr -scaler_prod rmorph_prod /=.
 apply: rpred_prod => j _; rewrite -exprZn rmorphX /=.
 apply: rpredX; rewrite mevalZ mevalX /t !tnth_map /= tnth_ord_tuple.
-move: (seqroots_pred l_inj l_setroots j); rewrite -(mpolyOverC n).
+move: (seqroots_pred l_over j); rewrite -(mpolyOverC n) /=.
 suff -> : ((c *: 's_(m, j.+1)).@[l])%:MP_[n] =
           c%:MP_[n] * ('s_(m, j.+1))
           .@[finfun((mpolyC n (R:=T)) \o l)] by [].
@@ -2237,7 +2244,7 @@ apply: rpredM.
 rewrite rmorphX /= -prodrXr -scaler_prod rmorph_prod /=.
 apply: rpred_prod => j _; rewrite -exprZn rmorphX /=.
 apply: rpredX; rewrite mevalZ mevalX /t !tnth_map /= tnth_ord_tuple.
-move: (seqroots_pred l_inj l_setroots j); rewrite -(mpolyOverC n).
+move: (seqroots_pred (set_roots_inj_over l_inj l_setroots) j); rewrite -(mpolyOverC n).
 suff -> : ((c *: 's_(m, j.+1)).@[l])%:MP_[n] =
           c%:MP_[n] * ('s_(m, j.+1))
           .@[finfun((mpolyC n (R:=T)) \o l)] by [].

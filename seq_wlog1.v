@@ -8,7 +8,7 @@ Require Import Cstruct Rstruct.
 From SsrMultinomials
 Require Import finmap order mpoly.
 From Lind
-Require Import ajouts.
+Require Import seq_ajouts.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -187,21 +187,12 @@ have := (polyMin_root (a_algebraic j)); rewrite H_eqroot rootX.
 by apply/negP/a_neq0.
 Qed.
 
-
-
-(* TODO : passer aux multisets : impératif pour la suite !! *)
-Lemma b_cset : [fset b i | i in {: 'I_L.+1}]%fset \is a setZroots c.
+Lemma b_cset : 
+  c *: \prod_(i < L.+1) ('X - (b i)%:P) \is a polyOver Cint.
 Proof.
-rewrite /b set_rootsE; set p := c *: _.
-suff -> : p = poly_b by apply: poly_b_Cint.
-rewrite /p /c [RHS]seqroots_poly.
-congr (_ *: _); rewrite big_fset /=; last first.
-  move=> i j; rewrite !ffunE /=.
-
-Search _ seqroots.
-
-Search _ enum_fset.
-
+rewrite /b (_ : _ *: _ = poly_b); first by apply: poly_b_Cint.
+rewrite /c [RHS]seqroots_poly.
+congr (_ *: _). 
 rewrite (big_ffun _ _ (tnth (Tuple size_b)) _ _ (fun i => 'X - i%:P)).
 by rewrite -[LHS](big_tuple _ _ (Tuple size_b) xpredT (fun i => 'X - i%:P)) /=.
 Qed.
@@ -483,8 +474,11 @@ Qed.
 Definition reindex_seq :=   
   filter (fun i => undup_b i != 0) (enum 'I_(size (undup sum_alpha)).-1.+1). 
 
-Lemma final_l_gt0 : (0 < size reindex_seq)%N.
+Definition final_l := (size reindex_seq).-1.
+
+Lemma tuple_RS : size reindex_seq == final_l.+1.
 Proof.
+apply/eqP; rewrite /final_l [RHS]prednK //.
 rewrite size_filter -has_count; apply/hasP.
 move: (U_in_all (index_bmaxf alpha)); rewrite -mcoeff_msupp.
 move/(map_f mnm_alpha); rewrite -/sum_alpha -mem_undup.
@@ -530,23 +524,25 @@ by move/letcif_sum; rewrite Hsum; move/letcif_refl/forallP/(_ j)/implyP; apply.
 Qed.
 
 (* Eliminer les coeffs nuls *)
-Definition final_alpha := finfun (undup_alpha \o (tnth (in_tuple reindex_seq))).
+Definition final_alpha := finfun (undup_alpha \o (tnth (Tuple tuple_RS))).
 
-Definition final_b := finfun (undup_b \o (tnth (in_tuple reindex_seq))).
+Definition final_b := finfun (undup_b \o (tnth (Tuple tuple_RS))).
 
 Lemma final_alpha_inj : injective final_alpha.
 Proof.
 move=> x y /eqP; rewrite !ffunE /= !ffunE !(tnth_nth 0) /=.
 rewrite nth_uniq ?undup_uniq //; first last.
-  + by rewrite {5}(elimT eqP undupA) ltn_ord.
-  + by rewrite {5}(elimT eqP undupA) ltn_ord.
++ by rewrite {4}(elimT eqP undupA) ltn_ord.
++ by rewrite {4}(elimT eqP undupA) ltn_ord.
 rewrite !(tnth_nth ord0) (inj_eq (@ord_inj _)) /= nth_uniq ?ltn_ord //.
-  by move/eqP/ord_inj.
++ by move/eqP/ord_inj.
++ by apply/(leq_trans (ltn_ord _)); rewrite (elimT eqP tuple_RS).
++ by apply/(leq_trans (ltn_ord _)); rewrite (elimT eqP tuple_RS).
 by apply: filter_uniq; apply: enum_uniq.
 Qed.
 
 Lemma final_alpha_algebraic : 
-    forall i : 'I_(size reindex_seq), final_alpha i is_algebraic.
+    forall i : 'I_final_l.+1, final_alpha i is_algebraic.
 Proof.
 move=> i; rewrite ffunE /= ; move: (tnth _ _) => j {i}.
 rewrite ffunE /= (tnth_nth 0) /=.
@@ -563,15 +559,16 @@ by rewrite integral_algebraic; apply: integral_nat.
 Qed.
 
 Lemma final_b_neq0 : 
-    forall i : 'I_(size reindex_seq), final_b i != 0.
+    forall i : 'I_final_l.+1, final_b i != 0.
 Proof.
 move=> i; rewrite ffunE /= (tnth_nth ord0) /=.
-move: (mem_nth ord0 (ltn_ord i)); set x := nth _ _ _.
+have := (@mem_nth _ ord0 (Tuple tuple_RS) i); rewrite size_tuple.
+move/(_ (ltn_ord _)); set x := nth _ _ _.
 by rewrite mem_filter => /andP[].
 Qed.
 
 Lemma final_b_Cint : 
-    forall i : 'I_(size reindex_seq), final_b i \is a Cint.
+    forall i : 'I_final_l.+1, final_b i \is a Cint.
 Proof.
 move=> i; rewrite ffunE /=; move: (tnth _ _) => j {i}.
 rewrite ffunE /=; apply: rpred_sum => m _.
@@ -582,23 +579,22 @@ Lemma final_Lindemann_false : Cexp_span final_b final_alpha == 0.
 Proof.
 rewrite -(elimT eqP undup_Cexp_span_eq0) /Cexp_span /final_b /final_alpha.
 rewrite (eq_bigr (fun j => (fun i => undup_b i * Cexp (undup_alpha i)) 
-    (tnth (in_tuple reindex_seq) j))); last first.
+    (tnth (Tuple tuple_RS) j))); last first.
   by move=> i _; rewrite ![in LHS]ffunE. 
-rewrite -(big_tnth _ _ _ xpredT (fun i => undup_b i * Cexp (undup_alpha i))).
+rewrite -(big_tuple _ _ _ xpredT (fun i => undup_b i * Cexp (undup_alpha i))).
 apply/eqP; rewrite /reindex_seq big_filter big_mkcond /= /index_enum -enumT /=.
 by apply: eq_bigr => i _; case: ifP => // /negbFE /eqP ->; rewrite mul0r.
 Qed.
 
 (* Theoreme wlog1 *)
 Lemma wlog1 : 
-  exists (f_l : nat) (f_alpha : complexR ^ f_l) (f_a : complexR ^ f_l), 
-  (0%N < f_l)%N /\ injective f_alpha /\ 
-  (forall i : 'I_f_l, f_alpha i is_algebraic) /\
-  (forall i : 'I_f_l, f_a i != 0) /\ (forall i : 'I_f_l, f_a i \is a Cint) /\
+  exists (f_l : nat) (f_alpha : complexR ^ f_l.+1) (f_a : complexR ^ f_l.+1), 
+  injective f_alpha /\ 
+  (forall i : 'I_f_l.+1, f_alpha i is_algebraic) /\
+  (forall i : 'I_f_l.+1, f_a i != 0) /\ (forall i : 'I_f_l.+1, f_a i \is a Cint) /\
   (Cexp_span f_a f_alpha == 0).
 Proof.
-exists (size reindex_seq); exists final_alpha; exists final_b.
-split; first by apply: final_l_gt0.
+exists (final_l); exists final_alpha; exists final_b.
 split; first by apply: final_alpha_inj.
 split; first by apply: final_alpha_algebraic.
 split; first by apply: final_b_neq0.
@@ -611,9 +607,9 @@ End Wlog1.
 
 
 Theorem wlog1_Lindemann :
-  (forall (l : nat) (alpha : complexR ^ l) (a : complexR ^ l),
-  (0%N < l)%N -> injective alpha -> (forall i : 'I_l, alpha i is_algebraic) ->
-  (forall i : 'I_l, a i != 0) -> (forall i : 'I_l, a i \is a Cint) ->
+  (forall (l : nat) (alpha : complexR ^ l.+1) (a : complexR ^ l.+1),
+  injective alpha -> (forall i : 'I_l.+1, alpha i is_algebraic) ->
+  (forall i : 'I_l.+1, a i != 0) -> (forall i : 'I_l.+1, a i \is a Cint) ->
   (Cexp_span a alpha != 0)) ->
   forall (l : nat) (alpha : complexR ^ l) (a : complexR ^ l),
   (0%N < l)%N -> injective alpha -> (forall i : 'I_l, alpha i is_algebraic) ->
@@ -622,7 +618,7 @@ Theorem wlog1_Lindemann :
 Proof. 
 move=> ih l alpha a l_gt0 alpha_inj alpha_alg a_neq0 a_alg; apply/negP => Hspan.
 move: (wlog1 l_gt0 alpha_inj alpha_alg a_neq0 a_alg Hspan)=> [fl [falpha [fa]]].
-move=> [] fl_gt0 [] falpha_inj [] falpha_alg [] fa_neq0 [] fa_Cint Hspan_eq0.
-move: (ih fl falpha fa fl_gt0 falpha_inj falpha_alg fa_neq0 fa_Cint).
+move=> [] falpha_inj [] falpha_alg [] fa_neq0 [] fa_Cint Hspan_eq0.
+move: (ih fl falpha fa falpha_inj falpha_alg fa_neq0 fa_Cint).
 by rewrite Hspan_eq0.
 Qed.
