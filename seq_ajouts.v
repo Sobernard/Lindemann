@@ -845,6 +845,7 @@ apply: eq_bigr => m _; rewrite mevalZ rmorph_prod /=.
 by congr (p@_m * _); apply: eq_bigr => i _; rewrite tnth_map rmorphX.
 Qed.
 
+
 Lemma mroots_coeff_proper (R : idomainType) (n : nat) (cs : R ^ n) (k : 'I_n.+1) :
 (\prod_(i < n) ('X - (cs i)%:P))`_k = (-1) ^+ (n - k) * ('s_(n, n - k)).@[cs].
 Proof.
@@ -2005,6 +2006,17 @@ rewrite !mem_cat => /orP [ H | /orP [H | H]] /=;
 by rewrite count_cat !seqroots_mu (mu_mul _ PQ_neq0).
 Qed.
 
+Lemma seqrootsZ P a : a != 0 -> 
+  perm_eq (seqroots (a *: P)) (seqroots P).
+Proof.
+case: (boolP (P == 0)) => [/eqP -> //= _ | P_neq0 a_neq0].
+  by rewrite scaler0.
+rewrite -mul_polyC.
+apply/(perm_eq_trans (seqrootsM _ )).
+  by apply/mulf_neq0 => //; rewrite polyC_eq0.
+by rewrite seqroots_polyC.
+Qed.
+
 Lemma seqroots_prod (I : Type) P (r : seq I) : all [pred i | P i != 0] r ->
   perm_eq (seqroots (\prod_(i <- r) P i)) (flatten [seq seqroots (P i) | i <- r]).
 Proof.
@@ -2017,6 +2029,23 @@ rewrite big_cons; apply: (perm_eq_trans (seqrootsM _)).
   apply:mulf_neq0; first by [].
   by rewrite prodf_seq_neq0.
 by rewrite perm_cat2l; apply: Ihr.
+Qed.
+
+Lemma seqroots_XsubC a : seqroots ('X - a%:P) = [:: a].
+Proof.
+set s := seqroots _.
+have size_s : size s = 1%N.
+  by rewrite seqroots_size polyXsubC_eq0 size_XsubC.
+have := (root_XsubC a a); rewrite eq_refl.
+have : 'X - a%:P != 0 by rewrite polyXsubC_eq0.
+move/(seqrootsP _) => H; move/H; rewrite -/s.
+have -> : s = (head 0 s) :: (behead s).
+  apply: (@eq_from_nth _ 0) => /=.
+    by rewrite size_behead size_s.
+  by move=> i; rewrite size_s ltnS leqn0 => /eqP ->; rewrite [RHS]/= nth0.
+have -> : behead s = [::].
+  by apply/eqP; rewrite -size_eq0 size_behead size_s.
+by rewrite inE => /eqP ->.
 Qed.
 
 Lemma seqroots_separable P :
@@ -2127,6 +2156,38 @@ Qed.
   by rewrite (ord_inj (nth_enum_ord _ _)). *)
 
 (* th fond caché, pour les seqroots *)
+Lemma sym_fundamental_set_roots_proper_wfset S (ringS : @subringPred T S) 
+  (kS : keyed_pred ringS) c m p (l : T ^ m) :
+  c *: \prod_(i < m) ('X - (l i)%:P) \is a polyOver kS -> p \is a mpolyOver m kS ->
+  p \is symmetric -> c ^+ (msize p).-1 * p.@[l] \in kS.
+Proof.
+move=> l_setroots p_over p_sym.  
+move: (sym_fundamental_subring p_over p_sym) => [q /andP[/eqP eq_qp /andP[size_le q_over]]].
+rewrite {2}eq_qp meval_comp_mpoly -mevalZ [q]mpolyE scaler_sumr rmorph_sum /=.
+rewrite big_seq; apply: rpred_sum => i i_msupp /=; rewrite !mevalZ mulrCA.
+apply: rpredM; rewrite -?mevalZ; first by move/mpolyOverP: q_over; move/(_ i).
+rewrite mpolyXE_id -[(msize p).-1](@subnK (\sum_(j < m) i j)); last first.
+  move/(leq_sub2r 1%N): size_le; rewrite [X in (_ <= X)%N]subn1 => size_le.
+  apply: (leq_trans _ size_le).
+  apply: (leq_trans _ (leq_sub2r 1%N (leq_msize_meight q))). 
+  case: (boolP (q == 0)) => [/eqP q_eq0 | H ].
+    by move: i_msupp; rewrite q_eq0 msupp0 in_nil.
+  rewrite -(leq_add2r 1%N) addn1 subn1 addn1 prednK; last first.
+    by rewrite lt0n msize_poly_eq0.
+  by rewrite -mdegE msize_mdeg_lt ?i_msupp.
+rewrite exprD -scalerA mevalZ.
+apply/rpredM; first apply/rpredX.
+  move/polyOverP: l_setroots; set P := \prod_(_ | _) _; move/(_ (size P).-1).
+  rewrite coefZ -lead_coefE.
+  have /monicP -> : P \is monic by apply/monic_prod_XsubC.
+  by rewrite mulr1.
+rewrite -prodrXr -scaler_prod rmorph_prod /=.
+apply: rpred_prod => j _; rewrite -exprZn rmorphX /=.
+apply: rpredX; rewrite mevalZ mevalX !tnth_map /= -mevalZ.
+by apply/seqroots_pred.
+Qed.
+
+
 Lemma sym_fundamental_set_roots_proper S (ringS : @subringPred T S) 
   (kS : keyed_pred ringS) c m p (l : T ^ m) : injective l ->
   [fset (l i) | i : 'I_m]%fset \is a set_roots kS c -> p \is a mpolyOver m kS ->
@@ -2614,7 +2675,8 @@ Proof. by move=> x; rewrite char_lalg char_num. Qed.
 Lemma seqroots_decomp_polyMin (a : seq complexR) (c : complexR) :
   c != 0 -> c *: \prod_(x <- a) ('X - x%:P) \is a polyOver Cint -> 
   {s : seq ((seq complexR) * complexR) | (perm_eq (flatten (map fst s)) a) &
-    (all (fun x => x.2 *: \prod_(x <- x.1) ('X - x%:P) \is a polyOver Cint) s)}.
+    (all (fun x => (x.2 *: \prod_(x <- x.1) ('X - x%:P) \is a polyOver Cint) 
+       && uniq x.1) s)}.
 Proof.
 have := (leqnn (size a)); move: {2}(size a) => n.
 elim: n a c => [a c | n ihn a c size_a c_neq0 Ha].
@@ -2658,7 +2720,14 @@ have [] := (ihn b c); rewrite //; last first.
   exists (((mask ma a), (lead_coef (map_poly intr pZ))) :: t).
     rewrite /= /b -(perm_cat2l (mask ma a)) in Ht.
     by apply/(perm_eq_trans Ht).
-  by rewrite /= -eq_P polyMin_over.
+  rewrite /= -eq_P polyMin_over all_t /= andbT.
+  have := (seqroots_polyMin x_alg); rewrite /polyMin eq_P.
+  rewrite (perm_eq_uniq (seqrootsZ _ _)) ?lead_coef_eq0 ?polyMin_neq0 //.
+  rewrite (perm_eq_uniq (seqroots_prod _)); last first.
+    by apply/allP => y _ /=; rewrite polyXsubC_eq0.
+  rewrite (@eq_map _ _ _ (fun i => [:: i])); last first.
+    by move=> y; rewrite seqroots_XsubC.
+  by rewrite flatten_seq1.  
 + have/floorCpP [qZ eq_q] := Ha.
   have : (pZ %| qZ) by rewrite -polyMinZ_dvdp -eq_q polyMin_dvdp.
   move/intdiv.dvdpP_int => [rZ].
@@ -2676,70 +2745,14 @@ have : (size b <= n.+1)%N.
   by apply/(leq_trans (count_size _ _)); rewrite size_map size_ma.
 rewrite leq_eqVlt ltnS.
 suff : size b != n.+1 by move/negbTE => ->.
-rewrite /b size_mask ?size_map // -Hs -size_ma -(size_map negb) -all_count.
-rewrite all_map /= /preim -has_predC (@eq_has _ _ idfun); last first.
-  by move=> i /=; apply/negPn; case: i.
-have /(perm_eq_iotaP 0) [seqI permI] := Hperm.
-
-
-Search _ perm_eq map.
-
-apply/hasP; exists (nth true ma 0%N).
-
-Search _ has.
-Search _ find.
-Print has.
-
-
-have -> : (n.+1 = \sum_(j <- mb) 1)%N by rewrite sum1_size size_map size_ma Hs.
-
-
-About eq_bigr.
-
-
-Search _ count.
-
-
-Search _ filter.
-all_filterP: forall (T : Type) (a : pred T) (s : seq T), reflect ([seq x <- s | a x] = s) (all a s)
-
-
-rewrite size_mask; last by rewrite size_map.
-
-rewrite /b; have -> : a = x :: behead a.
-  apply/(@eq_from_nth _ 0); rewrite /= ?size_behead ?prednK ?Hs //.
-  case => [_| i Hi]; first by rewrite /= /x.
-  by rewrite [RHS]/= nth_behead.
-rewrite size_mask.
-
-
- rewrite size_mask ?size_map ?size_ma // /mb.
-  
-  have -> : mb = false :: mask mb 
-
-
-Search _ count.  
-
-Search _ bitseq.
-Print mask.
-
-resize_mask:
-  forall (T : Type) (m : bitseq) (s : seq T),
-  {m1 : seq bool | size m1 = size s & mask m s = mask m1 s}
-About negb.
-
-Search _ (_ %= _).
-
-dvdp_prod_XsubC:
-  forall (R : idomainType) (I : Type) (r : seq I) (F : I -> R) (p : {poly R}),
-  p %| \prod_(i <- r) ('X - (F i)%:P) -> {m : bitseq | p %= \prod_(i <- mask m r) ('X - (F i)%:P)}
-    rewrite -lead_coef_eq0 lead_coefZ mulf_neq0 // lead_coef_eq0.
-
-About prodf_neq0.
- 
-
-
-Search _ lead_coef "eq0".
+have : (size (mask ma a) + size b = n.+1)%N.
+  by rewrite -size_cat (perm_eq_size Hperm).
+move=> <-; rewrite -[X in X == _]add0n eqn_add2r eq_sym size_eq0.
+apply/negP=> /eqP eq_ma.
+have := (polyMinZ_root x_alg); rewrite eq_P rootZ; first last.
+  by rewrite lead_coef_eq0 polyMin_neq0.
+by rewrite root_prod_XsubC eq_ma inE.
+Qed.
 
 
 

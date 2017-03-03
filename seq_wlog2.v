@@ -8,7 +8,7 @@ Require Import Cstruct Rstruct.
 From SsrMultinomials
 Require Import finmap order mpoly.
 From Lind
-Require Import ajouts wlog3.
+Require Import seq_ajouts seq_wlog3.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -200,17 +200,199 @@ have : (U_(f ord0)%MM \in msupp (\sum_(i < l.+1) a i *: 'X_(f i))).
 by rewrite msupp_eqnil.
 Qed.
 
-Definition mpoly_gamma : 'X_{1..L.+1} -> complexR :=
-   (fun (m : 'X_{1..L.+1}) => \sum_(i < L.+1) (gamma i) *+ (m i)).
+Definition mpoly_gamma : 'X_{1..L.+1} -> {mpoly complexR[L.+1]} :=
+   (fun (m : 'X_{1..L.+1}) => \sum_(i < L.+1) ('X_i) *+ (m i)).
+
+Lemma mpoly_gamma_neq0 m : m != 0%MM -> mpoly_gamma m != 0.
+Proof.
+move/eqP/mnmP => m_neq0; rewrite /mpoly_gamma; apply/eqP/mpolyP => eq_p.
+apply: m_neq0 => i; move: eq_p; move/(_ U_( i)%MM).
+rewrite linear_sum mcoeff0 /= (bigD1 i) //= mcoeffMn mcoeffX eq_refl /= mulr1n.
+rewrite big1; [by move/eqP; rewrite addr0 pnatr_eq0 mnmE; move/eqP=> ->|].
+move=> j /negbTE j_neq_i; rewrite mcoeffMn mcoeffX; case: eqP.
+  by move=> /mnmP /(_ i); rewrite !mnmE j_neq_i eq_refl.
+by move=> _; rewrite /= mul0rn.
+Qed.
+
+(* Regroupement par monome *)
+Definition regr_gamma := (fun m : 'X_{1..L.+1} =>
+    [seq (mpoly_gamma m).@[gamma] | m <- (msupp (mmsym complexR_ringType m))]).
+
+Local Notation "''s_' ( n , k )" := (@mesym n _ k).
+
+Lemma regr_gamma_conj m : m \in msupp R ->
+  c ^+ (((msize (mpoly_gamma m)).-1  * size (regr_gamma m))) *: 
+      \prod_(x <- regr_gamma m) ('X - x%:P) \is a polyOver Cint. 
+Proof.
+move=> m_in; apply/polyOverP => i; rewrite coefZ. 
+set ta := (fun m => size (regr_gamma m)).
+have [|] := (ltnP i (ta m).+1).
+  rewrite ltnS leq_eqVlt => /orP [/eqP i_nn | ordi].
+    rewrite rpredM ?rpredX ?c_Cint // i_nn.
+    set P := \prod_(_ <- _) _.
+    have <- : (size P).-1 = (ta m) by rewrite size_prod_XsubC /ta.
+    have -> : P`_(size P).-1 = lead_coef P by [].
+    by rewrite (monicP _) ?Cint1 ?/P ?rpred_prod // => j _; rewrite monicXsubC.
+  have ordinn1 : (i < (ta m).+1)%N by apply: (leq_trans ordi (leqnSn _)).
+  pose cs := finfun (fun j : 'I_(ta m) => nth 0 (regr_gamma m) j).
+  rewrite -/(ta m).
+  have eq_sumA : regr_gamma m = [seq cs i | i <- enum 'I_(ta m)].
+    apply/(@eq_from_nth _ 0); first by rewrite [RHS]size_map size_enum_ord.
+    move=> j; rewrite -/(ta m) => ord_j; rewrite [RHS](nth_map (Ordinal ordi)).
+      by rewrite ffunE /= nth_enum_ord.
+    by rewrite size_enum_ord.
+  rewrite eq_sumA big_map enumT (ordnat ordinn1) mroots_coeff_proper -mulrCA.
+  apply/rpredM; first by rewrite rpredX ?rpredN ?Cint1.
+  (*have -> : sum_gamma im = finfun (tnth (map_tuple (meval gamma) 
+              (map_tuple mpoly_gamma (Tuple (tuple_ta im))))).
+    by apply/ffunP => x; rewrite /sum_gamma !ffunE /= !tnth_map.*)
+  rewrite (eq_meval _ (ffunE _)) /regr_gamma.
+  have tuple_ta : size (msupp (mmsym complexR_ringType m)) == ta m.
+    by apply/eqP; rewrite /ta [RHS]size_map.
+  rewrite (@eq_meval _ _ _ (fun j : 'I_(ta m) => tnth (map_tuple (meval gamma) 
+                      (map_tuple mpoly_gamma (Tuple tuple_ta))) j)); last first.
+    move=> j; rewrite !tnth_map -/(tval (Tuple tuple_ta)).
+    rewrite -[X in X`_j]/(tval 
+            (map_tuple (fun m0 => (mpoly_gamma m0).@[gamma]) (Tuple tuple_ta))).
+    by rewrite -tnth_nth !tnth_map.
+  rewrite -meval_comp_mpoly.
+  move P_eq : (_ \mPo _) => P.
+  have P_Over : P \is a mpolyOver L.+1 Cint.
+    rewrite -P_eq comp_mpolyE rpred_sum // => m' _.
+    rewrite mpolyOverZ ?mcoeff_mesym ?Cint_Cnat ?Cnat_nat //.
+    rewrite rpred_prod // => j _; rewrite tnth_map rpredX // /mpoly_gamma.
+    by rewrite rpred_sum // => k _; rewrite rpredMn // mpolyOverX.
+  have msym_mpoly_gamma s : (msym s \o mpoly_gamma) =1 (mpoly_gamma \o (mperm (s^-1)%g)).
+    move=> m1 /=; rewrite /mpoly_gamma linear_sum /=; symmetry.
+    rewrite (reindex_inj (@perm_inj _ s)) /=; apply: eq_bigr => j _.
+    rewrite rmorphMn /= msymX; congr ('X_[ _ ] *+ _). 
+      rewrite /=; apply/mnmP => k; rewrite mnmE !mnm1E /=.
+      case: (boolP (s j == k)) => [/eqP <- | ]; first by rewrite permK eq_refl.
+      move/negP => H; symmetry; congr nat_of_bool; apply/negP => /eqP eq_j.        
+      by apply: H; rewrite eq_j permKV.
+    by rewrite /mperm mnmE permK.
+  have P_sym : P \is symmetric.
+    rewrite -P_eq msym_comp_poly ?mesym_sym // => s.
+    set t := map_tuple _ _.
+    have -> /= : [tuple msym s t`_i0 | i0 < (ta m)] = map_tuple (msym s) t.
+      apply/eq_from_tnth => x.
+      by rewrite tnth_map -tnth_nth tnth_ord_tuple [in RHS]tnth_map.
+    rewrite -map_comp (eq_map (msym_mpoly_gamma _)).
+    rewrite [X in perm_eq _ X]map_comp; apply: perm_map; apply: uniq_perm_eq.
+    + by apply: msupp_uniq.
+    + rewrite map_inj_uniq ?msupp_uniq // => m1 m2.
+      rewrite /mperm => /mnmP /= eq_ms; apply/mnmP => j; rewrite -(permK s j).
+      by move: (eq_ms (s j)); rewrite !mnmE.
+    move=> m1; apply/idP/mapP => [ | [m2 m2_in] /esym H].
+      rewrite msupp_mmsymP bla1 => /existsP [s' /eqP eq_s'].
+      exists (mperm (s * s'^-1)%g m); rewrite ?msupp_mmsymP ?bla1. 
+        apply/existsP; exists (s' * s^-1)%g.
+        by rewrite /mperm !mpermM mpermKV mpermK.
+      by rewrite -eq_s' /mperm; apply/mnmP => j; rewrite !mnmE permM /= !permKV.
+    rewrite msupp_mmsymP perm_eq_sym bla1 -H; apply/existsP. 
+    move: m2_in; rewrite msupp_mmsymP bla1 => /existsP[s' /eqP eq_s'].
+    exists (s^-1 * (s' ^-1))%g; rewrite -eq_s' /mperm; apply/eqP/mnmP => j.
+    by rewrite !mnmE permM permKV.
+  have H := (sym_fundamental_set_roots_proper_wfset _ P_Over P_sym).
+  move: gamma_set_roots; rewrite set_rootsE big_fset; last by apply/gamma_inj.
+  move/H => {H} H //=.
+  suff : (msize P <= ((msize (mpoly_gamma m)).-1 * (ta m)).+1)%N.
+    rewrite -[X in (_ <= X)%N]add1n -leq_subLR subn1.
+    by move/subnK => <-; rewrite exprD -mulrA rpredM ?rpredX ?c_Cint.
+  rewrite -P_eq comp_mpolyE; apply: (leq_trans (msize_sum _ _ _)).
+  rewrite -[msupp 's_( _ , _)]/(tval (in_tuple (msupp _))) big_tuple.
+  apply/bigmax_leqP => j _; rewrite msizeZ; last first.
+    by rewrite -mcoeff_msupp (tnth_nth 0%MM) in_tupleE mem_nth.
+  move eq_m': (tnth _ j) => m'.
+  have : m' \in (in_tuple (msupp ('s_((ta m), ((ta m) - i)) : {mpoly complexR[(ta m)]}))).
+    by rewrite -eq_m' mem_tnth.
+  rewrite mem_msupp_mesym /mechar => /andP[/eqP m'_mdeg /forallP m'_i].
+  rewrite -[X in (_ * X)%N](subn0 (ta m)) mulnC -sum_nat_const_nat big_mkord.
+  rewrite (eq_bigr (fun k => if (m' k != 0%N) 
+     then (mpoly_gamma (tnth (Tuple tuple_ta) k)) else 1)); last first.
+    move=> k _; move: (m'_i k); move: (m' k) => x; case: x; [| case]; rewrite //.
+    by move=> _; rewrite expr1 /= tnth_map.
+  apply: (@leq_trans (\sum_(i0 < (ta m) | m' i0 != 0) (msize (mpoly_gamma m)).-1).+1%N).
+    rewrite -big_mkcond /= -big_filter -(big_filter (index_enum _)).
+    move r_eq: (filter _ (index_enum _)) => r.      
+    apply: (big_ind2 (fun x y => (msize x <= y.+1)%N)).
+    + by rewrite msize1.
+    + move=> u su v sv Hu Hv.
+      have [->|nz_p ] := eqVneq u 0; first by rewrite mul0r msize0.
+      have [->|nz_q ] := eqVneq v 0; first by rewrite mulr0 msize0.
+      have [->|nz_pq] := eqVneq (u * v) 0; first by rewrite msize0.
+      by rewrite msizeM // -subn1 leq_subLR add1n -addnS -addSn leq_add.
+    + move=> k _; rewrite [X in (_ <= X)%N]prednK; last first.
+        rewrite lt0n msize_poly_eq0 mpoly_gamma_neq0 //.
+        apply/negP => /eqP m_eq0. 
+        suff : 0%MM \notin msupp R by move/negP; apply; rewrite -m_eq0.
+        rewrite -mcoeff_eq0 /R rmorph_prod /=; apply/prodf_eq0.
+        exists (sval alpha_in_gamma); first by move: (svalP alpha_in_gamma) =>[].
+        apply/eqP; rewrite rmorph_sum /= big1 // => x _.
+        by rewrite mcoeffZ mcoeffX /= mnm1_eq0 /= mulr0.
+      move=> {i ordi ordinn1 P P_eq P_Over P_sym H j m' eq_m' m'_mdeg m'_i r r_eq}.
+      move m0_eq : (tnth _ _) => m0 /=.
+      have : m0 \in msupp ((mmsym _ m) : {mpoly complexR[L.+1]}). 
+        rewrite -m0_eq (tnth_nth 0%MM) /= mem_nth ?(elimT eqP (tuple_ta im)) //.
+        by move: (ltn_ord k); rewrite /ta /regr_gamma [X in (k < X)%N]size_map.
+      rewrite msupp_mmsymP => /tuple_perm_eqP [s /val_inj /= eq_ms].
+      have -> : m = mperm s m0.      
+        have -> : m = Multinom (multinom_val m) by apply/mnmP => i.
+        by apply/mnmP => i; rewrite eq_ms mnmE.
+      move: (msym_mpoly_gamma (s^-1)%g m0); rewrite /= invgK => <-.
+      move: (mpoly_gamma _) => P. move: (s^-1)%g => {s eq_ms m0 m0_eq k} s.
+      elim/mpolyind: P => [ | c m0 P m0_in c_neq0 ihp].
+        by rewrite msym0 leqnn.
+      rewrite msymD msymZ msymX !msizeE !(eq_big_perm _ (msuppD _)) /=; last first.
+        + move=> m' /=; rewrite (perm_eq_mem (msuppZ _ c_neq0)) msuppX inE.
+          by apply/andP => [] [/eqP ->]; apply/negP.
+        + move=> m' /=; rewrite (perm_eq_mem (msuppZ _ c_neq0)) msuppX inE.
+          apply/andP => [] [/eqP ->]; rewrite mcoeff_msupp mcoeff_sym mpermK.
+          by rewrite -mcoeff_msupp; apply/negP.
+      rewrite !big_cat -!msizeE !msizeZ // !msizeX mdeg_mperm geq_max leq_maxl.
+      by rewrite /=; apply: (leq_trans ihp); rewrite leq_maxr.
+  rewrite big_mkcond /= ltnS; apply: (big_ind2 leq) => //. 
+    by move=> u1 u2 v1 v2; apply: leq_add.
+  by move=> k _; case: ifP => _.
+move=> i_gt.
+rewrite rpredM ?rpredX ?c_Cint //.
+have /leq_sizeP -> := i_gt; first by apply: Cint0.
+by rewrite size_prod_XsubC /ta size_map.
+Qed.
+(* Les exp associés à un meme monome sont des conjugués. *)
+(* Les coeff sont les mêmes sur un monome par le th ci-dessous *)
+(* issym_symmE:*)
+(* forall (n : nat) (R : ringType) (p : {mpoly R[n]}),*)
+(* p \is symmetric -> p = \sum_(m <- msupp p | sorted leq m) p@_m *: mmsym R m *)
+(* Aucun des coeff ne vaut 0 *)
+
+(* Faire les sommes de coeff, et undup la liste des gamma de façon simultanée *)
+(* A check 1 : il y a un coeff non nul *)
+(* A check 2 : *)
+
+(* Condition pas assez forte pour avoir un polyMin !
+On pourrait le sortir tel quel !
+Lemma seqroots_decomp_polyMin (a : seq complexR) (c : complexR) :
+  c != 0 -> c *: \prod_(x <- a) ('X - x%:P) \is a polyOver Cint -> 
+  {s : seq ((seq complexR) * complexR) | (perm_eq (flatten (map fst s)) a) &
+    (all (fun x => (x.2 *: \prod_(x <- x.1) ('X - x%:P) \is a polyOver Cint) 
+       && uniq x.1) s)}.
+*)
+
+
+
+
+
+
+Definition R_pair := [seq (m, R@_m) | m <- [seq m1 <- msupp R | sorted leq m1]].
+(filter (sorted leq) (msupp R))].
+
 
 Definition R_pair := [seq (m, (R@_m, mpoly_gamma m)) | m <- msupp R].
 
 
 Search _ (_ \is symmetric).
 Search _ "issym_".
-issym_symmE:
-  forall (n : nat) (R : ringType) (p : {mpoly R[n]}),
-  p \is symmetric -> p = \sum_(m <- msupp p | sorted leq m) p@_m *: mmsym R m
 
 Lemma R_pair_R :
   \sum_((R.@[finfun (Cexp \o gamma)]).
