@@ -2598,6 +2598,7 @@ rewrite -cats1 flatten_cat takel_cat 1?leq_eqVlt ?lt_j_size ?orbT //.
 by rewrite nth_cat (nth_flatten_size x_in_s lt_j_size nth_j).
 Qed.
 
+
 End Seq_ajouts.
 
 Section ComplexR_ajouts.
@@ -2609,6 +2610,138 @@ Proof. by rewrite seqroots_separable ?polyMin_separable. Qed.
 Lemma HcC l :
   [char mpoly_idomainType l.+1 complexR_idomainType] =i pred0.
 Proof. by move=> x; rewrite char_lalg char_num. Qed.
+
+Lemma seqroots_decomp_polyMin (a : seq complexR) (c : complexR) :
+  c != 0 -> c *: \prod_(x <- a) ('X - x%:P) \is a polyOver Cint -> 
+  {s : seq ((seq complexR) * complexR) | (perm_eq (flatten (map fst s)) a) &
+    (all (fun x => x.2 *: \prod_(x <- x.1) ('X - x%:P) \is a polyOver Cint) s)}.
+Proof.
+have := (leqnn (size a)); move: {2}(size a) => n.
+elim: n a c => [a c | n ihn a c size_a c_neq0 Ha].
+  by rewrite leqn0 size_eq0 => /eqP -> _ _; exists [::].
+case: (boolP (size a - n == 0)%N).
+  rewrite -leqn0 leq_subLR addn0.
+  by move/(ihn a c); apply.
+rewrite -lt0n ltn_subRL addn0 => H1.
+have /eqP Hs : size a == n.+1 by rewrite eqn_leq size_a H1.
+set x := nth 0 a 0.
+have x_alg : x is_algebraic.
+  apply: (poly_algebraic _ _ Ha).
+    rewrite ?scaler_eq0 negb_or c_neq0 /= prodf_seq_neq0. 
+    by apply/allP => y _; apply/implyP => _; rewrite polyXsubC_eq0.
+  by rewrite rootZ // root_prod_XsubC mem_nth ?Hs.
+set pZ := polyMinZ x_alg.
+have Hdiv_p : (map_poly ZtoC pZ %| (c *: \prod_(x <- a) ('X - x%:P))).
+  by rewrite -polyMin_dvdp // rootZ // root_prod_XsubC mem_nth ?Hs.
+have := Hdiv_p; rewrite dvdp_scaler //.
+move/dvdp_prod_XsubC => [m].
+have [ma size_ma -> /eqp_eq]:= (resize_mask m a).
+  have /monicP -> : \prod_(i <- mask ma a) ('X - i%:P) \is monic.
+    by apply/monic_prod_XsubC.
+  rewrite scale1r => eq_P.
+set mb := map negb ma; set b := mask mb a.
+have Hperm : perm_eq (mask ma a ++ mask mb a) a.
+  pose u := map (@nat_of_ord _) (enum 'I_n.+1); rewrite /mb.
+  have eq_v (T : Type) (x0 : T) (v : seq T) : 
+           size v = n.+1 -> v = map (nth x0 v) u.
+    move=> eq_size.
+    apply/(@eq_from_nth _ x0); first by rewrite !size_map -enumT size_enum_ord.
+    move=> j; rewrite eq_size => j_ord; rewrite (nth_map 0%N); last first.
+      by rewrite size_map size_enum_ord.
+    rewrite (nth_map ord0) -[j]/(nat_of_ord (Ordinal j_ord)) ?nth_ord_enum //.
+    by rewrite /= size_enum_ord.
+  rewrite (eq_v _ 0 a Hs) (eq_v _ true ma) ?size_ma ?Hs // -map_comp.
+  rewrite -map_mask -[X in _ ++ X]map_mask -map_cat perm_map //.
+  by rewrite -!filter_mask perm_filterC.
+have [] := (ihn b c); rewrite //; last first.
++ move=> t Ht all_t.
+  exists (((mask ma a), (lead_coef (map_poly intr pZ))) :: t).
+    rewrite /= /b -(perm_cat2l (mask ma a)) in Ht.
+    by apply/(perm_eq_trans Ht).
+  by rewrite /= -eq_P polyMin_over.
++ have/floorCpP [qZ eq_q] := Ha.
+  have : (pZ %| qZ) by rewrite -polyMinZ_dvdp -eq_q polyMin_dvdp.
+  move/intdiv.dvdpP_int => [rZ].
+  rewrite -[X in X * _]scale1r -(polyMinZ_zcontents x_alg) -intdiv.zpolyEprim.
+  rewrite -/pZ.
+  move/(congr1 (map_poly ZtoC)); rewrite -eq_q rmorphM /= eq_P.
+  rewrite -(eq_big_perm _ Hperm) big_cat /= -scalerAl !scalerAr.
+  have H :  \prod_(i <- mask ma a) ('X - i%:P) != 0.
+    rewrite prodf_seq_neq0; apply/allP => y _; apply/implyP => _.
+    by rewrite polyXsubC_eq0.
+  move/(mulfI H) => ->; apply/polyOverZ; first apply/polyOverP; 
+  by apply/polyOverP => i; rewrite coef_map_id0 ?Cint_int.
+have : (size b <= n.+1)%N.
+  rewrite /b size_mask ?size_map //.
+  by apply/(leq_trans (count_size _ _)); rewrite size_map size_ma.
+rewrite leq_eqVlt ltnS.
+suff : size b != n.+1 by move/negbTE => ->.
+rewrite /b size_mask ?size_map // -Hs -size_ma -(size_map negb) -all_count.
+rewrite all_map /= /preim -has_predC (@eq_has _ _ idfun); last first.
+  by move=> i /=; apply/negPn; case: i.
+have /(perm_eq_iotaP 0) [seqI permI] := Hperm.
+
+
+Search _ perm_eq map.
+
+apply/hasP; exists (nth true ma 0%N).
+
+Search _ has.
+Search _ find.
+Print has.
+
+
+have -> : (n.+1 = \sum_(j <- mb) 1)%N by rewrite sum1_size size_map size_ma Hs.
+
+
+About eq_bigr.
+
+
+Search _ count.
+
+
+Search _ filter.
+all_filterP: forall (T : Type) (a : pred T) (s : seq T), reflect ([seq x <- s | a x] = s) (all a s)
+
+
+rewrite size_mask; last by rewrite size_map.
+
+rewrite /b; have -> : a = x :: behead a.
+  apply/(@eq_from_nth _ 0); rewrite /= ?size_behead ?prednK ?Hs //.
+  case => [_| i Hi]; first by rewrite /= /x.
+  by rewrite [RHS]/= nth_behead.
+rewrite size_mask.
+
+
+ rewrite size_mask ?size_map ?size_ma // /mb.
+  
+  have -> : mb = false :: mask mb 
+
+
+Search _ count.  
+
+Search _ bitseq.
+Print mask.
+
+resize_mask:
+  forall (T : Type) (m : bitseq) (s : seq T),
+  {m1 : seq bool | size m1 = size s & mask m s = mask m1 s}
+About negb.
+
+Search _ (_ %= _).
+
+dvdp_prod_XsubC:
+  forall (R : idomainType) (I : Type) (r : seq I) (F : I -> R) (p : {poly R}),
+  p %| \prod_(i <- r) ('X - (F i)%:P) -> {m : bitseq | p %= \prod_(i <- mask m r) ('X - (F i)%:P)}
+    rewrite -lead_coef_eq0 lead_coefZ mulf_neq0 // lead_coef_eq0.
+
+About prodf_neq0.
+ 
+
+
+Search _ lead_coef "eq0".
+
+
 
 
 (*
