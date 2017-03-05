@@ -359,6 +359,7 @@ rewrite rpredM ?rpredX ?c_Cint //.
 have /leq_sizeP -> := i_gt; first by apply: Cint0.
 by rewrite size_prod_XsubC /ta size_map.
 Qed.
+
 (* Les exp associés à un meme monome sont des conjugués. *)
 (* Les coeff sont les mêmes sur un monome par le th ci-dessous *)
 (* issym_symmE:*)
@@ -374,12 +375,16 @@ Qed.
 On pourrait le sortir tel quel !
 Lemma seqroots_decomp_polyMin (a : seq complexR) (c : complexR) :
   c != 0 -> c *: \prod_(x <- a) ('X - x%:P) \is a polyOver Cint -> 
-  {s : seq ((seq complexR) * complexR) | (perm_eq (flatten (map fst s)) a) &
-    (all (fun x => (x.2 *: \prod_(x <- x.1) ('X - x%:P) \is a polyOver Cint) 
-       && uniq x.1) s)}.
-*)
+  uniq a -> {s : seq ({fset complexR} * complexR) | 
+    (perm_eq (flatten (map ((@enum_fset complexR_choiceType) \o fst) s)) a) &
+    (all (fun x => x.1 \is a setZconj x.2) s)}. *)
+
+Definition dzeta := undup (flatten [seq regr_gamma m | m <- 
+   [seq m1 <- msupp R | sorted leq (m1 : 'X_{1..L.+1})]]).
 
 
+
+Definition sum_b := 
 
 
 

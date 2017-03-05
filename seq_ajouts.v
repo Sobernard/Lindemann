@@ -607,6 +607,10 @@ elim: j => [ | j ihj]; first by rewrite subn0 derivn0.
 by rewrite derivnS subnS -ihj size_deriv_char.
 Qed.
 
+Lemma dvdp_trans (R : fieldType) (q p r : {poly R}) :
+  p %| q -> q %| r -> p %| r.
+Proof. by move=> H /dvdpP [s ->]; rewrite dvdp_mull. Qed.
+
 Section Poly_mrootRing.
 
 Import Pdiv.Ring.
@@ -2672,6 +2676,310 @@ Lemma HcC l :
   [char mpoly_idomainType l.+1 complexR_idomainType] =i pred0.
 Proof. by move=> x; rewrite char_lalg char_num. Qed.
 
+Lemma polyMinZ_pi (x : complexR) (H1 : x is_algebraic) (H2 : x is_algebraic) :
+  polyMinZ H1 = polyMinZ H2.
+Proof.
+have := (polyMinZ_root H1); rewrite polyMinZ_dvdp => /intdiv.dvdpP_int [x1].
+have := (polyMinZ_zcontents H1) => contents1.
+have := (intdiv.zpolyEprim (polyMinZ H1)); rewrite contents1 scale1r => eq1 He1.
+have := (polyMinZ_root H2).
+rewrite (@polyMinZ_dvdp _ H1) => /intdiv.dvdpP_int [x2].
+have := (polyMinZ_zcontents H2) => contents2.
+have := (intdiv.zpolyEprim (polyMinZ H2)); rewrite contents2 scale1r => eq2 He2.
+rewrite He1 -eq2.
+have/(congr1 lead_coef) := He1; rewrite lead_coefM -eq2 => H.
+have := (polyMinZ_lcoef_gt0 H1).
+rewrite H (pmulr_rgt0 _ (polyMinZ_lcoef_gt0 _)) => lc1.
+move: He2; rewrite -eq1 He1 -eq2 -mulrA -[X in X = _ * (_ * _)]mulr1.
+move/(mulfI (polyMinZ_neq0 _))/eqP; rewrite eq_sym mulrC => /eqP HA.
+have := (poly_intro_unit HA); rewrite /poly_unit => /andP [/size_poly1P[]] y1.
+move=> y1_neq0 Hx1; rewrite Hx1 coefC eq_refl => _.
+move: HA; rewrite mulrC => HA.
+have := (poly_intro_unit HA); rewrite /poly_unit => /andP [/size_poly1P[]] y2.
+move=> y2_neq0 Hx2; rewrite Hx2 coefC eq_refl => _.
+move: lc1; rewrite Hx1 lead_coefC => y1_gt0.
+move: HA; rewrite Hx1 Hx2 -rmorphM /= -polyC1 mulrC.
+move/polyC_inj/eqP; have := (gtz0_abs y1_gt0) => <-.
+rewrite intUnitRing.mulzn_eq1 => /andP[_] /eqP ->.
+by rewrite polyC1 mulr1.
+Qed.
+
+Lemma polyMinZ_uniq (x : complexR) (H : x is_algebraic) (y : complexR) 
+   (y_root : root (map_poly ZtoC (polyMinZ H)) y) :
+   polyMinZ H = polyMinZ (polyZ_algebraic (polyMinZ_neq0 H) y_root).
+Proof.
+move: H y_root => H1 y_root.  
+set H2 := (polyZ_algebraic (polyMinZ_neq0 H1) y_root).
+have := y_root; rewrite (polyMinZ_dvdp H2); move=> /intdiv.dvdpP_int [x1].
+have := (polyMinZ_zcontents H1) => contents1.
+have := (intdiv.zpolyEprim (polyMinZ H1)); rewrite contents1 scale1r => eq1 He1.
+have : root (map_poly ZtoC (polyMinZ H2)) x. 
+  have := y_root; rewrite (polyMinZ_dvdp H2).
+  have ZtoQtoC : QtoC \o ZtoQ =1 ZtoC by move=> z /=; rewrite ratr_int.
+  move/(irredp_XsubCP (polyMinZ_irr H1)) => [|H].
+    rewrite -size_poly_eq1 => /eqP eq_size.   
+    have := (root_size_gt1 (polyMin_neq0 H2) (polyMinZ_root H2)).
+    rewrite /polyMin -(eq_map_poly ZtoQtoC) map_poly_comp /= size_map_poly.
+    by rewrite intdiv.size_rat_int_poly eq_size.
+  have : polyMin H1 %= polyMin H2.
+    rewrite /Pdiv.Field.eqp /polyMin -!(eq_map_poly ZtoQtoC) !map_poly_comp /=.
+    by rewrite !dvdp_map !intdiv.dvdp_rat_int andbC.
+  by move/eqp_root => <-; apply: polyMin_root.
+rewrite (@polyMinZ_dvdp _ H1) => /intdiv.dvdpP_int [x2].
+have := (polyMinZ_zcontents H2) => contents2.
+have := (intdiv.zpolyEprim (polyMinZ H2)); rewrite contents2 scale1r => eq2 He2.
+rewrite He1 -eq2.
+have/(congr1 lead_coef) := He1; rewrite lead_coefM -eq2 => H.
+have := (polyMinZ_lcoef_gt0 H1).
+rewrite H (pmulr_rgt0 _ (polyMinZ_lcoef_gt0 _)) => lc1.
+move: He2; rewrite -eq1 He1 -eq2 -mulrA -[X in X = _ * (_ * _)]mulr1.
+move/(mulfI (polyMinZ_neq0 _))/eqP; rewrite eq_sym mulrC => /eqP HA.
+have := (poly_intro_unit HA); rewrite /poly_unit => /andP [/size_poly1P[]] y1.
+move=> y1_neq0 Hx1; rewrite Hx1 coefC eq_refl => _.
+move: HA; rewrite mulrC => HA.
+have := (poly_intro_unit HA); rewrite /poly_unit => /andP [/size_poly1P[]] y2.
+move=> y2_neq0 Hx2; rewrite Hx2 coefC eq_refl => _.
+move: lc1; rewrite Hx1 lead_coefC => y1_gt0.
+move: HA; rewrite Hx1 Hx2 -rmorphM /= -polyC1 mulrC.
+move/polyC_inj/eqP; have := (gtz0_abs y1_gt0) => <-.
+rewrite intUnitRing.mulzn_eq1 => /andP[_] /eqP ->.
+by rewrite polyC1 mulr1.
+Qed.
+
+Definition setZconj (c : complexR) :=
+  [qualify a f | let P := c *: \prod_(x <- enum_fset f) ('X - x%:P) in
+  match (eqVneq (P != 0) true)
+  with
+  |left p_neq0 =>
+    match (eqVneq (P \is a polyOver Cint) true) 
+    with
+    |left p_over => 
+      match (eqVneq (size P != 1)%N true)
+      with
+      |left p_neq1 => 
+        let x_root := svalP (sigW (closed_rootP _ p_neq1)) in 
+          P %= polyMin (poly_algebraic p_neq0 x_root p_over)                  
+      |right b3 => false
+      end
+    |right b2 => false 
+    end 
+  |right b1 => false
+  end].
+
+Fact setZconj_key c : pred_key (@setZconj c). Proof. by []. Qed.
+Canonical setZconj_keyed c := KeyedQualifier (@setZconj_key c).
+
+Lemma setZconjE (c : complexR) (f : {fset complexR}) : 
+  let P := c *: \prod_(x <- enum_fset f) ('X - x%:P) in
+  f \is a setZconj c = 
+  match (eqVneq (P != 0) true) with
+  |left p_neq0 =>
+    match (eqVneq (P \is a polyOver Cint) true) 
+    with
+    |left p_over => 
+      match (eqVneq (size P != 1)%N true)
+      with
+      |left p_neq1 => 
+        let x_root := svalP (sigW (closed_rootP _ p_neq1)) in 
+          P %= polyMin (poly_algebraic p_neq0 x_root p_over)                  
+      |right b3 => false
+      end
+    |right b2 => false 
+    end 
+  |right b1 => false
+  end.
+Proof. by []. Qed.
+
+Lemma setZconj_neq0 (c : complexR) (f : {fset complexR}) :
+  f \is a setZconj c -> c *: \prod_(x <- enum_fset f) ('X - x%:P) != 0.
+Proof.
+rewrite setZconjE.
+set P := c *: \prod_(x <- enum_fset f) ('X - x%:P).
+by case: (eqVneq (P != 0)) => H.
+Qed.
+
+Lemma setZconj_over (c : complexR) (f : {fset complexR}) :
+  f \is a setZconj c -> f \is a set_roots Cint c.
+Proof.
+rewrite setZconjE.
+set P := c *: \prod_(x <- enum_fset f) ('X - x%:P).
+case: (eqVneq (P != 0)) => H1 //.
+by case: (eqVneq (P \is a polyOver Cint) true) => H2.
+Qed.
+
+Lemma setZconj_size (c : complexR) (f : {fset complexR}) :
+  f \is a setZconj c -> size (c *: \prod_(x <- enum_fset f) ('X - x%:P)) != 1%N.
+Proof.
+rewrite setZconjE.
+set P := c *: \prod_(x <- enum_fset f) ('X - x%:P).
+case: (eqVneq (P != 0)) => H1 //.
+case: (eqVneq (P \is a polyOver Cint) true) => H2 //.
+by case: (eqVneq (size P != 1%N) true) => H3.
+Qed.
+
+Lemma setZconj_find (c : complexR) (f : {fset complexR}) (x : complexR) 
+  (x_alg : x is_algebraic) :
+  x \in f -> 
+  c *: \prod_(x <- enum_fset f) ('X - x%:P) \is a polyOver Cint ->
+  (size (c *: \prod_(x <- enum_fset f) ('X - x%:P)) > 1)%N -> 
+  all (root (polyMin x_alg)) (enum_fset f)  -> 
+  f \is a setZconj c.
+Proof.
+set P := c *: \prod_(x <- enum_fset f) ('X - x%:P).
+move=> x_in P_over size_P all_P; rewrite setZconjE.
+case: (eqVneq (P != 0)) => [H1 | /eqP H1]; last first.
+  have // : False; apply: H1; rewrite -size_poly_eq0 -lt0n.
+  by apply/(ltn_trans _ size_P).
+case: (eqVneq (P \is a polyOver Cint) true) => [H2|] //; last first.
+  by rewrite P_over eq_refl.
+case: (eqVneq (size P != 1%N) true) => [H3 | /eqP H3]; last first.
+  by have //: False; apply: H3; apply/negP => /eqP H3; move: size_P; rewrite H3.
+have div_P : c *: \prod_(x0 <- enum_fset f) ('X - x0%:P) %| polyMin x_alg.
+  rewrite dvdp_scalel.
+    by apply: uniq_roots_dvdp => //; rewrite uniq_rootsE enum_fset_uniq.
+  have -> : c = lead_coef (c *: \prod_(i <- enum_fset f) ('X - i%:P)).
+    rewrite lead_coefZ (monicP _) ?mulr1 //.
+    by apply/monic_prod => i _; apply/monicXsubC.
+  rewrite lead_coef_eq0 -size_poly_eq0 -lt0n.
+  by apply/(ltn_trans _ size_P).
+set Py := sigW _; set y_root := svalP Py; set y := sval Py.
+have y_alg : y is_algebraic by apply: (poly_algebraic H1 y_root H2).
+rewrite /polyMin (polyMinZ_pi _ y_alg) -/(polyMin _) -/P /Pdiv.Field.eqp.
+rewrite -polyMin_dvdp // (svalP Py) andbT.
+have : root (polyMin x_alg) y.
+  rewrite -dvdp_XsubCl.
+  by apply/(dvdp_trans _ div_P); rewrite /P dvdp_XsubCl (svalP Py).
+rewrite polyMinZ_dvdp ?polyMin_over // => Hyx.
+have [|] := (irredp_XsubCP (polyMinZ_irr x_alg) Hyx); last first.
+  rewrite {1}/Pdiv.Field.eqp => /andP[_].
+  rewrite -polyMinZ_dvdp polyMin_dvdp ?polyMin_over // -/(polyMin y_alg).
+  by apply: (dvdp_trans div_P).
+have ZtoQtoC : QtoC \o ZtoQ =1 ZtoC by move=> z /=; rewrite ratr_int.
+rewrite -size_poly_eq1 -intdiv.size_rat_int_poly. 
+rewrite -(size_map_poly (ratr_rmorphism complexR_numFieldType)) /=.
+rewrite -map_poly_comp /= (eq_map_poly ZtoQtoC) -/(polyMin _) => size_1.
+have : size (polyMin y_alg) != 1%N.
+  by apply/closed_rootP; exists y; apply: polyMin_root.
+by rewrite size_1.
+Qed.
+
+Lemma setZconj_polyMin (x : complexR) (x_alg : x is_algebraic) :
+  let P := polyMin x_alg in
+  seq_fset (seqroots P) \is a setZconj (lead_coef P).
+Proof.
+set P := polyMin x_alg; rewrite /=.
+have H : perm_eq (enum_fset (seq_fset (seqroots P))) (seqroots P).
+  apply: uniq_perm_eq; rewrite ?enum_fset_uniq ?seqroots_polyMin //.
+  by move=> y; rewrite seq_fsetE.
+apply: (@setZconj_find _ _ x).
++ rewrite seq_fsetE.
+  by apply/seqrootsP; rewrite ?polyMin_neq0 ?polyMin_root.
++ by rewrite (eq_big_perm _ H) /= -seqroots_poly polyMin_over.
++ rewrite (eq_big_perm _ H) /= -seqroots_poly.
+  by apply/(@root_size_gt1 _ x)/polyMin_root/polyMin_neq0.
+apply/allP=> y; rewrite -/P (perm_eq_mem H) => /seqrootsP.
+by apply; apply/polyMin_neq0.
+Qed.
+
+Lemma seqroots_decomp_polyMin (a : seq complexR) (c : complexR) :
+  c != 0 -> c *: \prod_(x <- a) ('X - x%:P) \is a polyOver Cint -> 
+  uniq a -> {s : seq ({fset complexR} * complexR) | 
+    (perm_eq (flatten (map ((@enum_fset complexR_choiceType) \o fst) s)) a) &
+    (all (fun x => x.1 \is a setZconj x.2) s)}.
+Proof.
+have := (leqnn (size a)); move: {2}(size a) => n.
+elim: n a c => [a c | n ihn a c size_a c_neq0 Ha uniq_a].
+  by rewrite leqn0 size_eq0 => /eqP -> _ _; exists [::].
+case: (boolP (size a - n == 0)%N).
+  rewrite -leqn0 leq_subLR addn0.
+  by move/(ihn a c); apply.
+rewrite -lt0n ltn_subRL addn0 => H1.
+have /eqP Hs : size a == n.+1 by rewrite eqn_leq size_a H1.
+set x := nth 0 a 0.
+have x_alg : x is_algebraic.
+  apply: (poly_algebraic _ _ Ha).
+    rewrite ?scaler_eq0 negb_or c_neq0 /= prodf_seq_neq0. 
+    by apply/allP => y _; apply/implyP => _; rewrite polyXsubC_eq0.
+  by rewrite rootZ // root_prod_XsubC mem_nth ?Hs.
+set pZ := polyMinZ x_alg.
+have Hdiv_p : (map_poly ZtoC pZ %| (c *: \prod_(x <- a) ('X - x%:P))).
+  by rewrite -polyMin_dvdp // rootZ // root_prod_XsubC mem_nth ?Hs.
+have := Hdiv_p; rewrite dvdp_scaler //.
+move/dvdp_prod_XsubC => [m].
+have [ma size_ma -> /eqp_eq]:= (resize_mask m a).
+  have /monicP -> : \prod_(i <- mask ma a) ('X - i%:P) \is monic.
+    by apply/monic_prod_XsubC.
+  rewrite scale1r => eq_P.
+set mb := map negb ma; set b := mask mb a.
+have Hperm : perm_eq (mask ma a ++ mask mb a) a.
+  pose u := map (@nat_of_ord _) (enum 'I_n.+1); rewrite /mb.
+  have eq_v (T : Type) (x0 : T) (v : seq T) : 
+           size v = n.+1 -> v = map (nth x0 v) u.
+    move=> eq_size.
+    apply/(@eq_from_nth _ x0); first by rewrite !size_map -enumT size_enum_ord.
+    move=> j; rewrite eq_size => j_ord; rewrite (nth_map 0%N); last first.
+      by rewrite size_map size_enum_ord.
+    rewrite (nth_map ord0) -[j]/(nat_of_ord (Ordinal j_ord)) ?nth_ord_enum //.
+    by rewrite /= size_enum_ord.
+  rewrite (eq_v _ 0 a Hs) (eq_v _ true ma) ?size_ma ?Hs // -map_comp.
+  rewrite -map_mask -[X in _ ++ X]map_mask -map_cat perm_map //.
+  by rewrite -!filter_mask perm_filterC.
+have x_in : x \in mask ma a.
+  have := (polyMinZ_root x_alg); rewrite eq_P rootZ; first last.
+    by rewrite lead_coef_eq0 polyMin_neq0.
+  by rewrite root_prod_XsubC.
+have [] := (ihn b c); rewrite //; last first.
++ move=> t Ht all_t.
+  exists ((seq_fset (mask ma a), (lead_coef (map_poly intr pZ))) :: t).
+    rewrite /= /b -(perm_cat2l (mask ma a)) in Ht; rewrite /=.
+    apply/(perm_eq_trans _ Hperm)/(perm_eq_trans _ Ht).
+    rewrite perm_cat2r.       
+    apply: uniq_perm_eq; rewrite ?enum_fset_uniq ?mask_uniq //.
+    by move=> y; rewrite seq_fsetE.
+  rewrite /= all_t /= andbT. 
+  apply/(@setZconj_find _ _ x).
+  + by rewrite seq_fsetE.
+  + rewrite (eq_big_perm (mask ma a)) /=; last first.
+      apply: uniq_perm_eq; rewrite ?enum_fset_uniq ?mask_uniq //.
+      by move=> y; rewrite seq_fsetE.
+    by rewrite -eq_P polyMin_over.
+  + rewrite (eq_big_perm (mask ma a)) /=; last first.
+      apply: uniq_perm_eq; rewrite ?enum_fset_uniq ?mask_uniq //.
+      by move=> y; rewrite seq_fsetE. 
+    rewrite -eq_P.
+    by apply/(@root_size_gt1 _ x)/polyMin_root/polyMin_neq0.
+  apply/allP => y; rewrite seq_fsetE => y_in; rewrite /polyMin eq_P rootZ.
+    by rewrite root_prod_XsubC.
+  have ZtoQtoC : QtoC \o ZtoQ =1 ZtoC by move=> z /=; rewrite ratr_int.
+  by rewrite lead_coef_eq0 polyMin_neq0.
++ by rewrite mask_uniq.
++ have/floorCpP [qZ eq_q] := Ha.
+  have : (pZ %| qZ) by rewrite -polyMinZ_dvdp -eq_q polyMin_dvdp.
+  move/intdiv.dvdpP_int => [rZ].
+  rewrite -[X in X * _]scale1r -(polyMinZ_zcontents x_alg) -intdiv.zpolyEprim.
+  rewrite -/pZ.
+  move/(congr1 (map_poly ZtoC)); rewrite -eq_q rmorphM /= eq_P.
+  rewrite -(eq_big_perm _ Hperm) big_cat /= -scalerAl !scalerAr.
+  have H :  \prod_(i <- mask ma a) ('X - i%:P) != 0.
+    rewrite prodf_seq_neq0; apply/allP => y _; apply/implyP => _.
+    by rewrite polyXsubC_eq0.
+  move/(mulfI H) => ->; apply/polyOverZ; first apply/polyOverP; 
+  by apply/polyOverP => i; rewrite coef_map_id0 ?Cint_int.
+have : (size b <= n.+1)%N.
+  rewrite /b size_mask ?size_map //.
+  by apply/(leq_trans (count_size _ _)); rewrite size_map size_ma.
+rewrite leq_eqVlt ltnS.
+suff : size b != n.+1 by move/negbTE => ->.
+have : (size (mask ma a) + size b = n.+1)%N.
+  by rewrite -size_cat (perm_eq_size Hperm).
+move=> <-; rewrite -[X in X == _]add0n eqn_add2r eq_sym size_eq0.
+apply/negP=> /eqP eq_ma.
+by move: x_in; rewrite eq_ma.
+Qed.
+
+
+
+(*
 Lemma seqroots_decomp_polyMin (a : seq complexR) (c : complexR) :
   c != 0 -> c *: \prod_(x <- a) ('X - x%:P) \is a polyOver Cint -> 
   {s : seq ((seq complexR) * complexR) | (perm_eq (flatten (map fst s)) a) &
@@ -2753,6 +3061,7 @@ have := (polyMinZ_root x_alg); rewrite eq_P rootZ; first last.
   by rewrite lead_coef_eq0 polyMin_neq0.
 by rewrite root_prod_XsubC eq_ma inE.
 Qed.
+*)
 
 
 
