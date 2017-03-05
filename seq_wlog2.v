@@ -200,6 +200,35 @@ have : (U_(f ord0)%MM \in msupp (\sum_(i < l.+1) a i *: 'X_(f i))).
 by rewrite msupp_eqnil.
 Qed.
 
+Lemma R_msupp : perm_eq (msupp R) (flatten [seq (msupp (mmsym complexR_ringType 
+           m)) | m <- [seq m0 <- msupp R | sorted leq (m0 : 'X_{1..L.+1})]]).
+Proof.
+have {1}-> : R = \sum_(m <- flatten [seq msupp (mmsym complexR_ringType m)
+   | m <- [seq m0 <- msupp R | sorted leq (m0 : 'X_{1..L.+1})]]) R@_m *: 'X_[m].
+  rewrite [LHS](issym_symmE R_sym) big_flatten /= big_map big_filter.
+  apply/eq_bigr => m m_sorted; rewrite [X in _ *: X = _]mpolyE scaler_sumr.
+  rewrite big_seq_cond [RHS]big_seq_cond.
+  apply/eq_bigr => m'; rewrite msupp_mmsymP => /andP[m'_perm _].
+  rewrite mcoeff_mmsym m'_perm /= scale1r.
+  congr (_ *: _); move: m'_perm; rewrite bla1 => /existsP [s /eqP <-].
+  by rewrite /mperm msym_coeff ?R_sym.
+apply/(@msupp_sumX _ _ _ (fun m => R@_m) _ _); first last.
+  move=> m1 /flatten_mapP[m2]; rewrite mem_filter => /andP[m2_s m2_in].
+  rewrite msupp_mmsymP perm_eq_sym bla1 => /existsP[s /eqP <-].
+  by rewrite /mperm msym_coeff ?R_sym // mcoeff_eq0 m2_in.
+move: (msupp_uniq R); elim: (msupp R) => [_ // | x s ihs /= /andP[x_in uniq_s]].
+case: (boolP (sorted leq x)) => [Hsorted | _ ]; last by apply: (ihs uniq_s).
+rewrite /= cat_uniq; apply/and3P; split; rewrite ?(ihs uniq_s) //.
+apply/hasPn => m /flatten_mapP[m0]; rewrite mem_filter => /andP[m0_s m0_in].
+rewrite msupp_mmsymP perm_eq_sym => m_in.
+apply/negP; rewrite /= msupp_mmsymP => Hperm.
+move: x_in; have := (perm_eq_trans Hperm m_in).
+have Hasym : antisymmetric leq by move=> u v; rewrite -eqn_leq; move/eqP.
+have Htrans : transitive leq by move=> u v w; apply: leq_trans.
+move/(eq_sorted Htrans Hasym Hsorted m0_s).
+by move/(val_inj)/(val_inj) => ->; rewrite m0_in.
+Qed.
+
 Definition mpoly_gamma : 'X_{1..L.+1} -> {mpoly complexR[L.+1]} :=
    (fun (m : 'X_{1..L.+1}) => \sum_(i < L.+1) ('X_i) *+ (m i)).
 
@@ -219,6 +248,39 @@ Definition regr_gamma := (fun m : 'X_{1..L.+1} =>
     [seq (mpoly_gamma m).@[gamma] | m <- (msupp (mmsym complexR_ringType m))]).
 
 Local Notation "''s_' ( n , k )" := (@mesym n _ k).
+
+Lemma regr_gamma_R : 
+  (R.@[finfun (Cexp \o gamma)]) = \sum_(m <- msupp R | sorted leq m) 
+  (R@_m * \sum_(i <- regr_gamma m) (Cexp i)).
+Proof.
+rewrite {1}[R](issym_symmE R_sym) rmorph_sum /=.
+apply/eq_bigr => m m_sorted; rewrite mevalZ /regr_gamma big_map.
+congr (_ * _); rewrite [X in X.@[ _ ] = _]mpolyE rmorph_sum /=.
+rewrite big_seq_cond [RHS]big_seq_cond.
+apply/eq_bigr => m0 /andP[m0_in _]; rewrite mcoeff_mmsym.
+rewrite -(msupp_mmsymP complexR_ringType) m0_in /= scale1r /mpoly_gamma.
+rewrite rmorph_sum /= [RHS](big_morph _ Cexp_morph Cexp0) mpolyXE_id.
+rewrite rmorph_prod /=.
+by apply/eq_bigr => i _; rewrite rmorphX /= mevalMn !mevalX ffunE /= CexpRX.
+Qed.
+
+Lemma regr_gamma_alg (m : 'X_{1..L.+1}) (x : complexR) : 
+  x \in regr_gamma m -> x is_algebraic.
+Proof.
+move/mapP => [m1 m1_in] ->; rewrite /mpoly_gamma rmorph_sum /=.
+apply/(big_ind (fun y => y is_algebraic)); first by apply/algebraic0.
++ by move=> u v; apply: algebraic_add.
+move=> i _; rewrite mevalMn -mulr_natr.
+apply/algebraic_mul => /=; first last.
+  by rewrite integral_algebraic; apply/integral_nat.
+have := gamma_set_roots; rewrite set_rootsE mevalX.
+apply: poly_algebraic.
+  rewrite -lead_coef_eq0 lead_coefZ mulf_eq0 negb_or c_neq0 andTb.
+  rewrite (monicP _) ?oner_neq0 //.
+  by apply/monic_prod_XsubC.
+rewrite rootZ ?c_neq0 // root_prod_XsubC.
+by apply/imfsetP; exists i.
+Qed.
 
 Lemma regr_gamma_conj m : m \in msupp R ->
   c ^+ (((msize (mpoly_gamma m)).-1  * size (regr_gamma m))) *: 
@@ -360,6 +422,39 @@ have /leq_sizeP -> := i_gt; first by apply: Cint0.
 by rewrite size_prod_XsubC /ta size_map.
 Qed.
 
+Lemma conj_gamma m x y (Hx : x \in regr_gamma m) : m \in msupp R ->
+  y \is a conjOf (regr_gamma_alg Hx) -> y \in regr_gamma m.
+Proof.  
+move=> m_in /conjOfP y_root.
+have := (regr_gamma_conj m_in); set d := c ^+ _. 
+have d_neq0 : d != 0 by rewrite expf_neq0 ?c_neq0.
+move/(polyMin_dvdp (regr_gamma_alg Hx)).
+rewrite rootZ // root_prod_XsubC Hx.
+move/eqP; rewrite eq_sym; move/eqP => /dvdpP [q H].
+suff : root (d *: \prod_(z <- regr_gamma m) ('X - z%:P)) y.
+  by rewrite rootZ // root_prod_XsubC.
+by rewrite H rootM y_root orbT.
+Qed.
+
+Lemma conj_gamma_count m x y (Hx : x \in regr_gamma m) : 
+  m \in msupp R -> y \is a conjOf (regr_gamma_alg Hx) -> 
+  (count_mem x) (regr_gamma m) = (count_mem y) (regr_gamma m).
+Proof.
+move=> m_in y_conj.
+have := (regr_gamma_conj m_in); set d := c ^+ _ => Hover.
+have d_neq0 : d != 0 by rewrite expf_neq0 // c_neq0.
+(* TODO : projection canonique de prod_eqType non existante ? *)
+have [s /perm_eqP Hperm /allP Hall]:= (seqroots_decomp_polyMin d_neq0 Hover).
+rewrite -!Hperm !ssrcomplements.count_flatten !(big_seq _ _ s).
+apply/eq_bigr => [[]] f /= b fb_in; rewrite !count_uniq_mem ?enum_fset_uniq //.
+have /= f_conj := (Hall _ fb_in); congr nat_of_bool.
+apply/idP/idP => [x_in | y_in].
+  rewrite (setZconj_seqroots_proper x_in f_conj) seq_fsetE /polyMin.
+  by rewrite -(polyMinZ_pi (regr_gamma_alg Hx)) -/(polyMin _) -conjOfE.
+rewrite (setZconj_seqroots_proper y_in f_conj) seq_fsetE -conjOfE. 
+by rewrite -(conjOf_sym (regr_gamma_alg Hx)).
+Qed.
+
 (* Les exp associés à un meme monome sont des conjugués. *)
 (* Les coeff sont les mêmes sur un monome par le th ci-dessous *)
 (* issym_symmE:*)
@@ -375,65 +470,162 @@ Qed.
 On pourrait le sortir tel quel !
 Lemma seqroots_decomp_polyMin (a : seq complexR) (c : complexR) :
   c != 0 -> c *: \prod_(x <- a) ('X - x%:P) \is a polyOver Cint -> 
-  uniq a -> {s : seq ({fset complexR} * complexR) | 
+  {s : seq ({fset complexR} * complexR) | 
     (perm_eq (flatten (map ((@enum_fset complexR_choiceType) \o fst) s)) a) &
     (all (fun x => x.1 \is a setZconj x.2) s)}. *)
 
+
+(* regroupement des coeffs en enlevant les doublons de gamma *)
+(* ils sont mis dans le même ordre *)
 Definition dzeta := undup (flatten [seq regr_gamma m | m <- 
    [seq m1 <- msupp R | sorted leq (m1 : 'X_{1..L.+1})]]).
-
-
-
 Definition sum_b := 
+   (fun x => (\sum_(m <- msupp R | (mpoly_gamma m).@[gamma] == x) R@_m)).
 
-
-
-
-Definition R_pair := [seq (m, R@_m) | m <- [seq m1 <- msupp R | sorted leq m1]].
-(filter (sorted leq) (msupp R))].
-
-
-Definition R_pair := [seq (m, (R@_m, mpoly_gamma m)) | m <- msupp R].
-
-
-Search _ (_ \is symmetric).
-Search _ "issym_".
-
-Lemma R_pair_R :
-  \sum_((R.@[finfun (Cexp \o gamma)]).
+Lemma dzeta_regr_gamma_eq0 :
+  \sum_(m <- msupp R | sorted leq m) (R@_m * \sum_(i <- regr_gamma m) (Cexp i))
+  = \sum_(i <- dzeta) ((sum_b i) * (Cexp i)).
 Proof.
-
-
-(* on commence par partitionner suivant les coeffs *)
-
-
-(* on partitionne suivant les degrés puis les coeff *)
-
-Definition m_ord := finfun (fun i => 
-    tnth (in_tuple (filter (fun m : 'X_{1..L.+1} => R@_m != 0) (msupp R))) i).
-
-(* fonction de partition *)
-Definition fpart := finfun ((@msort L.+1) \o m_ord).
-
-Local Notation l_part := (size (filter (fun m : 'X_{1..L.+1} => R@_m != 0) (msupp R))).
-Local Notation "''m_' md" := (mmsym _ md)
-  (at level 8, md at level 2, format "''m_' md").
-
-Definition morph_m : 'X_{1..L.+1} -> {mpoly complexR[L.+1]} :=
-   (fun (m : 'X_{1..L.+1}) => \sum_(i < L.+1) 'X_i *+ (m i)).
-Local Notation "''e_' md" := (morph_m md)
-  (at level 8, md at level 2, format "''e_' md").
-
-Lemma morph_m_neq0 m : m != 0%MM -> 'e_m != 0.
-Proof.
-move/eqP/mnmP => m_neq0; rewrite /morph_m; apply/eqP/mpolyP => eq_p.
-apply: m_neq0 => i; move: eq_p; move/(_ U_( i)%MM).
-rewrite linear_sum mcoeff0 /= (bigD1 i) //= mcoeffMn mcoeffX eq_refl /= mulr1n.
-rewrite big1; [by move/eqP; rewrite addr0 pnatr_eq0 mnmE; move/eqP=> ->|].
-move=> j /negbTE j_neq_i; rewrite mcoeffMn mcoeffX; case: eqP.
-  by move=> /mnmP /(_ i); rewrite !mnmE j_neq_i eq_refl.
-by move=> _; rewrite /= mul0rn.
+rewrite /sum_b /dzeta [in LHS]big_seq_cond big_mkcondl -big_filter.
+set r := [seq m <- msupp R | sorted leq (m : 'X_{1..L.+1})].
+rewrite /= {1}/regr_gamma -big_mkcond /=.
+set f := (fun m : 'X_{1..L.+1} => R@_m * Cexp (mpoly_gamma m).@[gamma]).
+rewrite (eq_bigr (fun i => (\sum_(m <- msupp (mmsym complexR_ringType i)) 
+                            f m))); last first.
+  move=> m m_in; rewrite big_map big_distrr /= big_seq_cond [RHS]big_seq_cond.
+  apply/eq_bigr => m0 /andP[]; rewrite msupp_mmsymP bla1 => /existsP[s /eqP <-].
+  by move=> _; congr (_ * _); rewrite /mperm msym_coeff ?R_sym.
+rewrite big_mkcond big_filter -big_mkcondl -big_seq_cond /=.
+rewrite -big_filter -/r.
+rewrite -(@big_map _ _ _ _ _ (fun i : 'X_{1..L.+1} => msupp (mmsym complexR_ringType i)) 
+  r xpredT (fun x => \sum_(m <- x) f m)) -big_flatten /=.
+rewrite -(eq_big_perm _ R_msupp) /=.
+apply/eqP; rewrite eq_sym; apply/eqP.    
+rewrite (eq_bigr (fun i => (\sum_(m <- msupp R | (mpoly_gamma m).@[gamma] == i) 
+  f m))); last first.
+  move=> x _; rewrite big_distrl /=.
+  by apply/eq_bigr => m /eqP <-.
+set r1 := undup _; rewrite (big_tnth _ _ (msupp R)).
+set t := in_tuple _.
+set g := fun i => R@_(tnth t i) * Cexp (mpoly_gamma (tnth t i)).@[gamma].
+rewrite (eq_bigr g); last by move=> i _; rewrite /f /g.
+have p j : (mpoly_gamma (tnth t j)).@[gamma] \in r1. 
+  rewrite /r1 mem_undup.
+  have := (perm_eq_msort (tnth t j)); rewrite bla1 => /existsP[s /eqP Hs].
+  apply/flatten_mapP; exists (msort (tnth t j)).
+    rewrite mem_filter msort_sorted andTb.
+    by rewrite -Hs /mperm issym_msupp ?R_sym // mem_tnth.
+  rewrite -Hs /regr_gamma.
+  apply/mapP; exists (tnth t j) => //; rewrite msupp_mmsymP bla1 /mperm.
+  by apply/existsP; exists s.
+set P := (fun j : 'I_(size (msupp R)) => sval (seq_tnthP (p j))).
+rewrite (eq_bigr (fun i => \sum_(j < size (msupp R) | 
+                   (mpoly_gamma (tnth t j)).@[gamma] == i) g j)); last first.
+  by move=> i _; rewrite big_tnth -/t; apply/eq_bigr => j _.
+rewrite big_tnth. 
+rewrite (eq_bigr (fun i => \sum_(j < size (msupp R) | P j == i) g j)).
+  by rewrite -(@partition_big _ _ _ _ _ xpredT _ xpredT).
+move=> i _; apply/eq_bigl => j; rewrite /P.
+move: (svalP (seq_tnthP (p j))) => {1}->; rewrite !(tnth_nth 0) /=.
+by apply: nth_uniq => //; rewrite undup_uniq.
 Qed.
+
+Lemma dzeta_alg (x : complexR) : x \in dzeta -> x is_algebraic.
+Proof. 
+by rewrite mem_undup => /flattenP [s /mapP[m m_in]] -> /regr_gamma_alg.
+Qed.
+
+Lemma conj_dzeta x y (Hx : x \in dzeta) :
+  y \is a conjOf (dzeta_alg Hx) -> y \in dzeta.
+Proof.
+have := Hx; rewrite mem_undup.
+move/flatten_mapP => [m]; rewrite mem_filter => /andP[m_sorted m_in x_in].
+rewrite -(conjOf_pi _ (regr_gamma_alg x_in)).
+move/(conj_gamma m_in) => H; rewrite mem_undup.
+by apply/flatten_mapP; exists m => //; rewrite mem_filter m_sorted m_in.
+Qed.
+
+Lemma conj_dzeta_sum_b x y (Hx : x \in dzeta) :
+  y \is a conjOf (dzeta_alg Hx) -> sum_b x = sum_b y.
+Proof.
+move=> y_conj; rewrite /sum_b.
+rewrite !(eq_big_perm _ R_msupp) /= !big_flatten /= !big_map !big_filter.
+rewrite big_seq_cond [RHS]big_seq_cond.
+apply/eq_bigr => m /andP[m_in m_sorted]; rewrite big_seq_cond [RHS]big_seq_cond.
+rewrite (eq_bigr (fun i => R@_m * 1%N%:R)); last first.
+  move=> m0 /andP[]; rewrite msupp_mmsymP bla1 => /existsP[s /eqP <- _].
+  by rewrite /mperm (msym_coeff _ _ R_sym) mulr1.
+rewrite [RHS](eq_bigr (fun i => R@_m * 1%N%:R)); last first.
+  move=> m0 /andP[]; rewrite msupp_mmsymP bla1 => /existsP[s /eqP <- _].
+  by rewrite /mperm (msym_coeff _ _ R_sym) mulr1.
+rewrite -!big_distrr /= -!natr_sum -!big_seq_cond !sum1_count.
+congr (_ * _ %:R).
+pose f := (fun j : _ => (mpoly_gamma j).@[gamma]).
+rewrite (@eq_count _ _ (preim f (pred1 x))); last by move=> u /=; rewrite /f.
+rewrite [RHS](@eq_count _ _ (preim f (pred1 y))); last first.
+  by move=> u /=; rewrite /f.
+rewrite -!count_map /f -/(regr_gamma m).
+case: (boolP (x \in regr_gamma m)) => [Hxg | H].
+  apply: (conj_gamma_count m_in).
+  by rewrite (conjOf_pi _ _ (dzeta_alg Hx)).
+rewrite (count_memPn H); apply/eqP; rewrite eq_sym.
+apply/eqP/count_memPn/negP => y_in; move/negP: H; apply.
+by apply: (@conj_gamma _ _ _ y_in m_in _); rewrite -(conjOf_sym (dzeta_alg Hx)).
+Qed.
+
+Definition dzeta_n0 := [seq i <- dzeta | sum_b i != 0].
+
+Lemma dzeta_n0_alg (x : complexR) : x \in dzeta_n0 -> x is_algebraic.
+Proof. 
+by rewrite mem_filter => /andP[_]; apply: dzeta_alg.
+Qed.
+
+Lemma conj_dzeta_n0 x y (Hx : x \in dzeta_n0) :
+  y \is a conjOf (dzeta_n0_alg Hx) -> y \in dzeta_n0.
+Proof.
+have := Hx; rewrite mem_filter => /andP[bx Hxd].
+rewrite -(conjOf_pi _ (dzeta_alg Hxd)) => y_conj.
+have/conj_dzeta := y_conj => y_in; rewrite mem_filter y_in andbT.
+by rewrite -(conj_dzeta_sum_b y_conj).
+Qed.
+
+Lemma conj_dzeta_n0_sum_b x y (Hx : x \in dzeta_n0) :
+  y \is a conjOf (dzeta_n0_alg Hx) -> sum_b x = sum_b y.
+Proof.
+have := Hx; rewrite mem_filter => /andP[bx Hxd].
+rewrite -(conjOf_pi _ (dzeta_alg Hxd)) => y_conj.
+by apply: (conj_dzeta_sum_b y_conj).
+Qed.
+
+Definition l_final := (size dzeta_n0).-1.
+
+(* TODO *)
+(* théorème size : l_final_gt0 *)
+(* Lien avec R et dzeta_n0 *)
+(* mettre les notations *)
+
+
+Lemma l_final_gt0 : size dzeta_n0 = l_final.+1.
+Proof.
+rewrite /l_final prednK // size_filter -has_count.
+
+
+Search _ count.
+
+
+
+
+
+
+
+
+.
+(* musique : 40:50 3x02 *)
+
+
+
+
+
 
 (* But : Lemma wlog3 l c (alpha : complexR ^ l.+1) (part : {set {set 'I_l.+1}}) 
   (a : complexR ^ l.+1) :
