@@ -645,12 +645,6 @@ Qed.
 
 Definition l_final := (size dzeta_n0).-1.
 
-(* TODO *)
-(* théorème size : l_final_gt0 *)
-(* Lien avec R et dzeta_n0 *)
-(* mettre les notations *)
-
-
 Lemma l_final_gt0 : size dzeta_n0 = l_final.+1.
 Proof.
 rewrite /l_final prednK // size_filter -has_count /dzeta.
@@ -665,6 +659,54 @@ move/eqP; rewrite -all_count.
 have /eq_all {f Hcount} -> : predC f =1 (fun i => sum_b i == 0).
   by move=> i; rewrite /=; apply/negPn/idP.
 set g := (fun i => _ == 0) => /allP Hflat.
+pose m_of := (fun (h : {ffun ('I_L.+1 ^ l.+1) -> 'I_l.+1}) => 
+   (\sum_(f : 'I_L.+1 ^ l.+1 | injectiveb f) U_(f (h f)))%MM).
+pose D := (fun i0 : @finfun_of (exp_finIndexType (S l)) (ordinal (S L))
+           (Phant (forall _ : ordinal (S l), ordinal (S L))) =>
+           @injectiveb (exp_finIndexType (S l)) (ordinal_eqType (S L))
+           (@FunFinfun.fun_of_fin (exp_finIndexType (S l)) (ordinal (S L)) i0)).
+set Rt := (fun _ : ordinal (S l) => true).
+have H_in_f m : m \in msupp R -> 
+                   exists h, (m_of h == m) && (h \in pffun_on ord0 D Rt).
+  move=> m_in. 
+  have /dhomogP := R_dhomog; move/(_ m m_in) => /= mdeg_m.
+  move: m_in; rewrite /R (big_distr_big ord0) /= mcoeff_msupp.
+  rewrite (big_morph _ (mcoeffD _) (mcoeff0 _ _)) => H.
+  have : [exists f, (f \in pffun_on ord0 D Rt) && 
+     ((\prod_(i0 : 'I_L.+1^l.+1| injectiveb i0) 
+                  (a (f i0) *: 'X_(i0 (f i0))))@_m != 0)].
+    rewrite -[[exists _, _]]Bool.negb_involutive negb_exists.
+    apply/negP => /forallP Hforall; move/negP: H; apply.
+    rewrite big1 // => f f_in; apply/eqP.
+    by move: (Hforall f); rewrite negb_and f_in /= Bool.negb_involutive.
+  move=> /existsP[f /andP[f_on f_neq0]].
+  exists f; rewrite /m_of f_on andbT.
+  move: f_neq0; rewrite scaler_prod mcoeffZ mulf_eq0 negb_or => /andP[_].
+  by rewrite mprodXE mcoeffX pnatr_eq0 eqb0 Bool.negb_involutive.
+have Hsum_b m : sum_b (mpoly_gamma m).@[gamma] =
+  \sum_(i : 'X_{1..L.+1 < (L.+1 ^_ l.+1).+1} | (mpoly_gamma i).@[gamma] ==
+   (mpoly_gamma m).@[gamma]) R@_i.
+  rewrite /sum_b; set s := index_enum _. 
+  pose P := (fun (i : 'X_{1..L.+1 < (L.+1 ^_ l.+1).+1}) => val i \in msupp R).
+  have Hperm : perm_eq s ((filter P s) ++ (filter (predC P) s)).
+    by rewrite perm_eq_sym (perm_eqlE (perm_filterC _ _)).
+  rewrite (eq_big_perm _ Hperm) /= big_cat /=.
+  rewrite [X in _ + X]big_filter_cond [X in _ + X]big1 /P; last first.
+    by move=> i /= /andP[] /memN_msupp_eq0 ->.
+  have {Hperm} Hperm : perm_eq (msupp R) (map val [seq i <- s | val i \in msupp R]).
+    apply: uniq_perm_eq.
+    + by apply/msupp_uniq.
+    + rewrite map_inj_uniq ?filter_uniq /s //.
+        by rewrite /index_enum -enumT enum_uniq.
+      by apply: val_inj.
+    move=> i.
+    apply/idP/mapP => [i_in | [] bm].
+      have Hmi : (mdeg i < (L.+1 ^_ l.+1).+1)%N.
+        by have /dhomogP := R_dhomog; move/(_ i i_in) => /= ->.
+      pose bmi := BMultinom Hmi; exists bmi => //; rewrite mem_filter /= i_in /=.
+      by rewrite mem_index_enum.
+    by rewrite mem_filter => /andP[H _ ->].
+  by rewrite (eq_big_perm _ Hperm) /= big_map addr0. 
 have H_g : forall (m : 'X_{1..L.+1}), sum_b (mpoly_gamma m).@[gamma] == 0.
   move=> m; case: (boolP [exists m0 : 'X_{1..L.+1 < (L.+1 ^_ l.+1).+1}, 
             ((val m0 \in msupp R) && 
@@ -697,12 +739,7 @@ have Pf_msupp (f : 'I_L.+1 ^ l.+1) : injective f -> perm_eq (msupp (Pf f))
           last first.
     by move=> i; rewrite msuppMCX ?a_neq0.
   by rewrite -[X in perm_eq _ X]ssrcomplements.flatten_seq1 -map_comp.
-pose D := (fun i0 : @finfun_of (exp_finIndexType (S l)) (ordinal (S L))
-           (Phant (forall _ : ordinal (S l), ordinal (S L))) =>
-           @injectiveb (exp_finIndexType (S l)) (ordinal_eqType (S L))
-           (@FunFinfun.fun_of_fin (exp_finIndexType (S l)) (ordinal (S L)) i0)).
-set R := (fun _ : ordinal (S l) => true).
-have Hf (f : 'I_L.+1 ^ l.+1) i : injective f -> (*m \in msupp (Pf f) ->*)
+have Hf (f : 'I_L.+1 ^ l.+1) i : injective f -> 
   i \in codom f ->
   letcif ((mpoly_gamma U_(i)%MM).@[gamma]) 
   (mpoly_gamma (mf f)).@[gamma]
@@ -714,34 +751,18 @@ have Hf (f : 'I_L.+1 ^ l.+1) i : injective f -> (*m \in msupp (Pf f) ->*)
     by rewrite mnm1E eq_refl mulr1n mevalX addr0.
   rewrite !HU_mg eq_index_bmaxf (inj_eq (@mnm1_inj L.+1)) (inj_eq inj_f).
   by apply: bmaxf_letcif => u v; rewrite !ffunE; move/gamma_inj/inj_f.
-(*  have : mdeg m = 1%N by have/dhomogP := (Pf_homog f); move/(_ _ m_in).
-  move/eqP/mdeg1P => [i /eqP eq_m]; move: m_in; rewrite eq_m => {eq_m m} m_in.
-  have [j ->] : exists j : 'I_l.+1 , i = f j.
-    move: m_in; rewrite (perm_eq_mem (Pf_msupp f inj_f)).
-    by move => /mapP[j _] /mnm1_inj ->; exists j.
-  have HU_mg k : (mpoly_gamma U_( f k)%MM).@[gamma] = (finfun (gamma \o f)) k.
-    rewrite ffunE /mpoly_gamma rmorph_sum /= (bigD1 (f k)) //= big1; last first.
-      by move=> u /negbTE u_neqk; rewrite mnm1E eq_sym u_neqk /= mulr0n meval0.
-    by rewrite mnm1E eq_refl mulr1n mevalX addr0.
-  rewrite !HU_mg eq_index_bmaxf (inj_eq (@mnm1_inj L.+1)) (inj_eq inj_f).
-  by apply: bmaxf_letcif => u v; rewrite !ffunE; move/gamma_inj/inj_f. *)
-(* have mf_in (f : 'I_L.+1 ^ l.+1) m : injective f -> mf f \in msupp (Pf f).
-  move=> inj_f; rewrite (perm_eq_mem (Pf_msupp f inj_f)) /mf.
-  by apply/mapP; exists (index_bmaxf (finfun (gamma \o f))). *)
 pose mm := (\sum_(f : 'I_L.+1 ^ l.+1 | injectiveb f) (mf f))%MM.
-pose m_of := (fun (h : {ffun ('I_L.+1 ^ l.+1) -> 'I_l.+1}) => 
-   (\sum_(f : 'I_L.+1 ^ l.+1 | injectiveb f) U_(f (h f)))%MM).
+have mpoly_gammaD u v : mpoly_gamma (u + v) = mpoly_gamma u + mpoly_gamma v.
+  rewrite /mpoly_gamma -big_split /=.
+  by apply/eq_bigr => i _; rewrite mnmDE mulrnDr.
 have Hprod (h : {ffun ('I_L.+1 ^ l.+1) -> 'I_l.+1}) : 
-  h \in pffun_on ord0 D R ->
+  h \in pffun_on ord0 D Rt ->
   letcif (mpoly_gamma (m_of h)).@[gamma] (mpoly_gamma mm).@[gamma] (m_of h == mm). 
-  rewrite /R /mm /m_of; set s := index_enum _; elim: s h => [h Hh | f s ihs h].
+  rewrite /Rt /mm /m_of; set s := index_enum _; elim: s h => [h Hh | f s ihs h].
     rewrite !big_nil eq_refl.
     by apply/letcif_refl.
   rewrite !big_cons; case: (boolP (injectiveb f)) => [ | _]; last by exact: ihs.
   move=> /injectiveP inj_f Hh.
-  have mpoly_gammaD u v : mpoly_gamma (u + v) = mpoly_gamma u + mpoly_gamma v.
-    rewrite /mpoly_gamma -big_split /=.
-    by apply/eq_bigr => i _; rewrite mnmDE mulrnDr.
   rewrite !mpoly_gammaD.
   have /letcifP := (ihs h Hh).
   case: (boolP (_ == _)) => [/eqP -> _| ].
@@ -758,75 +779,37 @@ have Hprod (h : {ffun ('I_L.+1 ^ l.+1) -> 'I_l.+1}) :
   by move=> _; rewrite !mevalD; apply: lttc_add.
 pose fmm := (finfun (fun f : 'I_L.+1 ^ l.+1 => if injectiveb f then 
     index_bmaxf (finfun (gamma \o f)) else ord0 )).
-have Hfmm : fmm \in pffun_on ord0 D R.
+have Hfmm : fmm \in pffun_on ord0 D Rt.
   apply/pffun_onP; split; last by move=> h.
   apply/supportP => f; rewrite /fmm ffunE => /negP H /=.
   by have -> : injectiveb f = false by apply/negP => f_inj.
 suff : sum_b (mpoly_gamma (m_of fmm)).@[gamma] != 0.
-  move/negP; apply; apply: H_g.
-have -> : m_of fmm = mm.
+  by move/negP; apply; apply: H_g.
+rewrite Hsum_b.
+have Hmm_mof : m_of fmm = mm.
   rewrite /m_of /fmm /mm /mf.
   by apply/eq_bigr => f f_inj; congr (mnm1 (f _)); rewrite ffunE f_inj.
-rewrite /sum_b.
-
-(* TODO : agrandir le sum_b pour les bmultinom qui ont un exists*)
-(* montrer que mm est un bmultinom avec le exists (par l'égalité)*)
-(* mm est le seul qui vérifie l'égalité *)
-
-
-Search _ cat.
-
-
-(* have Hprod (h : 'I_L.+1 ^ l.+1 -> 'X_{1..L.+1}) : m \in msupp R -> 
-  letcif (mpoly_gamma m).@[gamma] (mpoly_gamma mm).@[gamma] (m == mm). 
-  rewrite /R /mm; set s := index_enum _; elim: s m => [m | f s ihs m].
-    rewrite !big_nil msupp1 inE => /eqP ->; rewrite eq_refl.
-    by apply/letcif_refl.
-  rewrite !big_cons; case: (boolP (injectiveb f)) => [ | _]; last by exact: ihs.
-  move=> /injectiveP inj_f.
-  move/msuppM_le/allpairsP => [[m_sumf m_prod] /=] [m_sumf_in m_prod_in ->].
-  have mpoly_gammaD u v : mpoly_gamma (u + v) = mpoly_gamma u + mpoly_gamma v.
-    rewrite /mpoly_gamma -big_split /=.
-    by apply/eq_bigr => i _; rewrite mnmDE mulrnDr.
-  rewrite !mpoly_gammaD.
-  have /letcifP := (ihs m_prod m_prod_in).
-  case: (boolP (m_prod == _)) => [/eqP -> _| ].
-    rewrite eqm_add2r.
-    apply/letcifP; move/letcifP: (Hf f m_sumf inj_f m_sumf_in).
-    by case: ifP => [/eqP -> // | _ H]; rewrite !mevalD lttc_add2r.
-  move=> m_prod_neq Hlttc_prod.
-  have /letcifP := (Hf f m_sumf inj_f m_sumf_in).
-  case: (boolP (m_sumf == _)) => [/eqP -> _ | ].
-    rewrite eqm_add2l (negbTE m_prod_neq) !mevalD.
-    by apply/letcifP; rewrite lttc_add2l.
-  move=> m_sumf_neq Hlttc_sumf; apply/letcifP.
-  suff : (m_sumf + m_prod)%MM != (mf f + \sum_(j <- s | injectiveb j) mf j)%MM.
-    move/negbTE => ->; rewrite !mevalD.
-    by apply: (lttc_add). 
-  apply/negP => /eqP H.
-  have := (lttc_add Hlttc_sumf Hlttc_prod); rewrite -!mevalD -!mpoly_gammaD H.
-  by rewrite lttcc. *)
-suff : sum_b (mpoly_gamma mm).@[gamma] != 0.
-  by move/negP; apply; apply: H_g.
-have H1 : forall m, m \in msupp R -> exists h : 'I_L.+1 ^ l.+1 -> 'I_L.+1,
-      [forall f : ('I_L.+1 ^ l.+1), injectiveb f ==> (h f \in codom f)].
-  move=> m m_in.
-
-
-suff mm_in : mm \in msupp R by exists mm.
-rewrite /R (big_distr_big ord0) /= mcoeff_msupp.
+rewrite Hmm_mof. 
+have Hbmm : (mdeg mm < (L.+1 ^_ l.+1).+1)%N.
+  rewrite /mm mdeg_sum (eq_bigr (fun i => 1%N)); last first.
+    by move=> i _; rewrite mdeg1.
+  by rewrite sum1dep_card card_inj_ffuns !cardT !size_enum_ord.
+pose bmm := BMultinom Hbmm.
+rewrite (bigD1 bmm) //= big1 ?addr0; last first.
+  move=> i /andP[H] Hi_neqm.
+  have /negbTE i_neqm : val i != mm.
+    rewrite -[mm]/(val bmm).
+    by apply/negP; move/eqP/val_inj => Hi; rewrite Hi eq_refl in Hi_neqm.
+  case: (boolP [exists f, (f \in pffun_on ord0 D Rt) && (m_of f == i)]).
+    move=> /existsP[f /andP[f_in /eqP eq_f]].
+    have /letcifP := (Hprod f f_in); rewrite eq_f i_neqm.
+    by move/lttc_eqF; rewrite H.
+  rewrite negb_exists => /forallP Hi.
+  apply/memN_msupp_eq0/negP => i_in.
+  have := (H_in_f i i_in) => [[fi /andP[H1 H2]]].
+  by move: (Hi fi); rewrite H1 H2.
+rewrite /R (big_distr_big ord0) /=.
 rewrite (big_morph _ (mcoeffD _) (mcoeff0 _ _)).
-set fmm := (finfun (fun f : 'I_L.+1 ^ l.+1 => if injectiveb f then 
-    index_bmaxf (finfun (gamma \o f)) else ord0 )).
-set D := (fun i0 : @finfun_of (exp_finIndexType (S l)) (ordinal (S L))
-           (Phant (forall _ : ordinal (S l), ordinal (S L))) =>
-           @injectiveb (exp_finIndexType (S l)) (ordinal_eqType (S L))
-           (@FunFinfun.fun_of_fin (exp_finIndexType (S l)) (ordinal (S L)) i0)).
-set R := xpredT.
-have Hfmm : fmm \in pffun_on ord0 D R.
-  apply/pffun_onP; split; last by move=> h.
-  apply/supportP => f; rewrite /fmm ffunE => /negP H /=.
-  by have -> : injectiveb f = false by apply/negP => f_inj.
 rewrite (bigD1 fmm) //= /mm [X in _ + X]big1 ?addr0.
   rewrite scaler_prod mcoeffZ mulf_neq0 //.
     by apply/prodf_neq0 => i _; apply: a_neq0.
@@ -834,299 +817,50 @@ rewrite (bigD1 fmm) //= /mm [X in _ + X]big1 ?addr0.
   by move=> f inj_f; rewrite /fmm ffunE inj_f.
 move=> h /andP[h_in] h_neq; apply/eqP; rewrite scaler_prod mcoeffZ mulf_eq0.
 apply/orP; right; rewrite mprodXE mcoeffX -[0]/((nat_of_bool false)%:R).
-apply/eqP; congr (nat_of_bool _)%:R; apply/negP.
+apply/eqP; congr (nat_of_bool _)%:R; apply/negP; rewrite -/(m_of h).
 move/eqP/(congr1 (fun m => (mpoly_gamma m).@[gamma])); rewrite -/mm => eqmpg.
-have 
-
-
-(*
-suff : exists2 m, m \in msupp R & 
-             ((mpoly_gamma m).@[gamma] == (mpoly_gamma mm).@[gamma]). 
-  move=> [m m_in].
-  have := 
-
-
-  have /letcifP := (Hprod m m_in).
-  case: ifP => [/eqP H _ _ | _]; last first.
-    by rewrite lttc_neqAle => /andP[/negbTE -> _].
-  move: m_in; rewrite H => {m H} mm_in.
-  have := mm_in; apply/negP; rewrite -mcoeff_eq0 [R]mpolyE.
-  rewrite (big_morph _ (mcoeffD _) (mcoeff0 _ _)) big_seq_cond.
-  rewrite (eq_bigr (fun i => R@_i * ((mpoly_gamma i).@[gamma] == 
-                                (mpoly_gamma mm).@[gamma])%:R)); last first.
-    move=> i /andP[i_in _]; rewrite mcoeffZ mcoeffX.
-    congr (_ * (nat_of_bool _)%:R); apply/idP/idP=> [/eqP -> // | /eqP H].
-    by rewrite -(getc_letcif (Hprod i i_in)) H letcc.
-  rewrite -big_seq_cond R_re big1 //.
-  move=> x _; case : (boolP (x == (mpoly_gamma mm).@[gamma])) => [/eqP -> | ].
-    rewrite (eq_bigr (fun m => R@_m)) -?/(sum_b (mpoly_gamma mm).@[gamma]).
-      apply/eqP/Hflat/flatten_mapP; exists (msort mm); rewrite ?mem_filter.
-        rewrite msort_sorted andTb.
-        have := (perm_eq_msort mm); rewrite bla1 => /existsP[s /eqP <-].
-        by rewrite /mperm issym_msupp ?R_sym ?mm_in.
-      by apply/mapP; exists mm => //; rewrite msupp_mmsymP perm_eq_msort.
-    by move=> m ->; rewrite mulr1.
-  by move=> /negbTE Hx; rewrite big1 // => m /eqP ->; rewrite Hx mulr0.*)
-
-
-
-Search _ (nat_of_bool false).
-congr nat_of_bool.
-
-      
-Search _ "prod" mpolyX.
-      
-      
-Set Printing All.
-    
-
-    case: (injectiveb f).
-
-
-
-
-About mathcomp.ssreflect.finfun.pffun_on.
-Search _ (pffun_on _ _ _).
-Check (pffun_on ord0 (fun i0 : 'I_L.+1 ^ l.+1 => injectiveb i0) xpredT).
-
-Search _ msupp "sum".
-  
-Print R.
-
-Search _ (pfamily _ _ _).
-have : R = \sum_(
-big_distr_big:
-  forall (R : Type) (zero one : R) (times : Monoid.mul_law zero) (plus : Monoid.add_law zero times)
-    (I J : finType) (j0 : J) (P : pred I) (Q : pred J) (F : I -> J -> R),
-  \big[times/one]_(i | P i) \big[plus/zero]_(j | Q j) F i j =
-  \big[plus/zero]_(f in pffun_on j0 P Q) \big[times/one]_(i | P i) F i (f i)
-pffun_onP:
-  forall (aT : finType) (rT : eqType) (y : rT) (D : pred aT) (R : pred rT) (f : {ffun aT -> rT}),
-  reflect (y.-support f \subset D /\ {subset [seq f x | x in D] <= R}) (f \in pffun_on y D R)
-
-Search _ msupp mmsym.
-    rewrite eqc_letc => /andP[].
- 
-Search _ letcif letc.
-About R_re.
-Search _ msupp mcoeff.
-
-getc_letcif: forall (x y : complexR) (C : bool), letcif x y C -> letc y x = C
-lttc_neqAle: forall x y : complexR, lttc x y = (x != y) && letc x y
-letcifP: forall (x y : complexR) (C : bool), reflect (letcif x y C) (if C then x == y else lttc x y)
-
-Search _ letcif.
-
-
-have mpoly_inf : (mpoly_gamma mm).@[gamma] \in [seq (mpoly_gamma m).@[gamma] | 
-      m <-
-
-Search _ msupp R.
-
-
-
-
-
-Search _ letcif.
-
-  apply/letcifP.
-  have H_sumf : Order.POrderDef.le (m_sumf) (mf f).
-
-
-Search _ letcif.
-
-split.
-    rewrite big_distrl /=.
-    set im := (index_bmaxf (finfun (gamma \o f))).
-    rewrite (bigD1 im) //= mcoeff_msupp mcoeffD.
-    have -> : (\sum_(i < l.+1 | i != im) a i *: 'X_(f i) * 
-     \prod_(j <- s | injectiveb j) (\sum_(i0 < l.+1) a i0 *: 'X_(j i0)))@_
-        (mf f + \sum_(j <- s | injectiveb j) mf j) = 0.
-      rewrite (big_morph _ (mcoeffD _) (mcoeff0 _ _)) big1 // => j j_neqim.
-      rewrite -scalerAl mcoeffZ.
-      apply/eqP; rewrite mulf_eq0 (negbTE (a_neq0 j)) orFb.
-
-Search _ mcoeff mpolyX.
-      mcoeffMX:
-  forall (n : nat) (R : ringType) (p : {mpoly R[n]}) (m k : 'X_{1.. n}), (p * 'X_[m])@_(m + k) = p@_k
-
-Search _ (\big[ _ / _ ]_( _ <- _ | _) _) (_ @_ _).
-
-
-Search _ (_ + _)%MM.
-
-(perm_eq_mem (msuppD _)) /=; last first.
-      move=> y /=.
-
-
-    
-Search _ (_ \in (_ ++ _)).
-
-msuppD
-
-msuppMX:
-  forall (n : nat) (R : ringType) (p : {mpoly R[n]}) (m : 'X_{1.. n}),
-  perm_eq (msupp (p * 'X_[m])) [seq (m + m')%MM | m' <- msupp p]
-
-
-
-
-
-msuppM_le:
-  forall (n : nat) (R : ringType) (p q : {mpoly R[n]}),
-  {subset msupp (p * q) <= [seq (m1 + m2)%MM | m1 <- msupp p, m2 <- msupp q]}
-msuppMX:
-  forall (n : nat) (R : ringType) (p : {mpoly R[n]}) (m : 'X_{1.. n}),
-  perm_eq (msupp (p * 'X_[m])) [seq (m + m')%MM | m' <- msupp p]
-About dhomogP.
-  rewrite (dhomogP _ Pf_homog).
-
-/(Pf_homog).
-
-Search _ "homog".
-dhomogP:
-  forall (n : nat) (R : ringType) (mf0 : measure n) (d : nat) (p : {mpoly R[n]}),
-  reflect {in msupp p, forall m : 'X_{1.. n}, mf0 m = d} (p \is d.-homog for mf0)
-
-
-have HO : (0 < #| 'I_l.+1 |)%N by rewrite cardT size_enum_ord.
-have H (x : 'I_l.+1 -> 'I_L.+1) : injective x -> 
-  mlead (\sum_(i < l.+1) a i *: 'X_(x i)) = U_(x (sval (eq_bigmax x HO)))%MM.
-  set P := eq_bigmax _ _; set j := sval P => inj_x.
-  rewrite mlead_sum; last first.
-    rewrite filter_xpredT (@eq_map _ _ _ (fun p => U_(x p)%MM)); last first.
-      by move=> i; rewrite mleadZ ?mleadXm ?a_neq0.
-    rewrite map_inj_uniq; first by rewrite /index_enum -enumT enum_uniq.
-    by move=> u v /mnm1_inj /inj_x.
-  rewrite (eq_bigr (fun p => U_(x p)%MM)); last first.
-    by move=> i _; rewrite mleadZ ?mleadXm ?a_neq0.
-  apply/Order.POrderTheory.le_anti/andP; split.
-    apply/joinsP_seq => i _ _; rewrite Order.POrderTheory.le_eqVlt.
-    case: (boolP (i == j)) => [/eqP -> | /negbTE inj]; first by rewrite eq_refl.
-    apply/orP; right; apply/ltmcP; first by rewrite !mdeg1.
-
-Search _ Order.POrderDef.lt.
-
-ltmcP:
-  forall (n : nat) (m1 m2 : 'X_{1.. n}),
-  mdeg m1 = mdeg m2 ->
-  reflect (exists2 i : 'I_n, forall j : 'I_n, (j < i)%N -> m1 j = m2 j & (m1 i < m2 i)%N)
-    (Order.POrderDef.lt m1 m2)
-
- rewrite leEmnm !mdeg1.
-
-
- /Order.SeqLexPOrder.lexi.
-    rewrite -/(Order.SeqLexPOrder.lexi _ _) eq_refl Order.POrderTheory.ltxx.
-    rewrite orFb andTb.
-
-Print Order.POrderDef.le.
-
-
-Search _ Order.SeqLexPOrder.lexi.
-
-    set ui := U_( _)%MM; set uj := U_(_)%MM.
-
-Print Order.SeqLexPOrder.lexi.
-
-Search antisymmetric.
-  
-
-
-Search _ Order.LatticeDef.join.
-joinsP_seq:
-  forall (T : eqType) (disp : unit) (U : Order.BLattice.Exports.blatticeType disp) 
-    (P : pred T) (F : T -> Order.BLattice.sort U) (r : seq T)
-    (u : Order.POrder.sort (Order.BLattice.porderType U)),
-  reflect (forall x : T, x \in r -> P x -> Order.POrderDef.le (F x) u)
-    (Order.POrderDef.le (\big[Order.LatticeDef.join/Order.BLatticeDef.bottom]_(x <- r | P x) F x) u)
-join_sup_seq:
-  forall (T : eqType) (disp : unit) (U : Order.BLattice.Exports.blatticeType disp)
-    (F : T -> Order.BLattice.sort U) (x : T) (r : seq T),
-  x \in r ->
-  Order.POrderDef.le (F x) (\big[Order.LatticeDef.join/Order.BLatticeDef.bottom]_(i <- r) F i)
-Search _ "mnm1".
-    
-
-
-
-
-Search _ mlead.
-
-
-
-eq_bigmax: forall (I : finType) (F : I -> nat), (0 < #|I|)%N -> {i0 : I | \max_i F i = F i0}
-Search _ mlead.
-Locate mlead.
-Locate Order.LatticeDef.join.
-Print mlead.
-Print Order.LatticeDef.join.
-Locate mdeg.
-Search _ "b" "max".
-Print mlead.
-mlead_sum:
-  forall (n : nat) (R : ringType) (T : Type) (r : seq T) (P : T -> bool) (F : T -> {mpoly R[n]}),
-  uniq [seq mlead (F p) | p <- r & P p] ->
-  mlead (\sum_(p <- r | P p) F p) =
-  \big[Order.LatticeDef.join/Order.BLatticeDef.bottom]_(p <- r | P p) mlead (F p)
-mlead_prod:
-  forall (n : nat) (R : idomainType) (T : eqType) (r : seq T) (P : pred T) (F : T -> {mpoly R[n]}),
-  (forall x : T, x \in r -> P x -> F x != 0) ->
-  mlead (\prod_(p <- r | P p) F p) = (\sum_(p <- r | P p) mlead (F p))%MM
-pose m := (\sum_(f : 'I_L.+1 ^ l.+1 | injectiveb f)
-            U_(f (index_bmaxf (finfun (gamma \o f)))))%MM.
-have m_in : m \in msupp R.
-  rewrite /R /m; set s := index_enum _.
-  have : uniq s by rewrite /s /index_enum -enumT enum_uniq.
-  elim : s => [// _ | x s ihs]; first by rewrite !big_nil msupp1 inE eq_refl. 
-  rewrite /= => /andP[x_nin uniq_s]; rewrite !big_cons.
-  case: (boolP (injectiveb x)) => [x_inj | x_ninj]; last by exact: (ihs uniq_s).
-  rewrite mcoeff_msupp.  
-
-Search _ mcoeff (_ + _)%MM (_ * _).
-Search _ mlead.
-  
-Search _ msupp (_ + _).  
-    mleadc_prod:
-  forall (n : nat) (R : ringType) (T : Type) (r : seq T) (P : pred T) (F : T -> {mpoly R[n]}),
-  (\prod_(p <- r | P p) F p)@_(\sum_(p <- r | P p) mlead (F p)) = \prod_(p <- r | P p) mleadc (F p)
-      
-  msuppMX:
-  forall (n : nat) (R : ringType) (p : {mpoly R[n]}) (m : 'X_{1.. n}),
-  perm_eq (msupp (p * 'X_[m])) [seq (m + m')%MM | m' <- msupp p]
-
-
-Search _ msupp "sum".
-
-\prod_(f : 'I_L.+1 ^ l.+1 | injectiveb f) 
-     \sum_(i : 'I_l.+1) (a i) *: 'X_(f i).
-R = \prod_(f | injectiveb f) (\sum_(i < l.+1) a i *: 'X_(f i))
-  (*rewrite [R]mpolyE R_re.
-  apply/(big_ind (fun x => x == 0)) => //.
-    by move=> p q /eqP -> /eqP ->; rewrite addr0.
-  move=> x _.*)
-
-
-  \sum_(m <- msupp R) f m =
-  \sum_(i <- dzeta) \sum_(m <- msupp R | (mpoly_gamma m).@[gamma] == i) f m.
-
-
-apply/hasP.
-suff : exists2 m, ((m \in (msupp R)) && sorted leq (m : 'X_{1..L.+1})) & 
-                  has f (regr_gamma m).
-  move=> [m /andP[m_in m_sorted] /hasP[x x_in x_f]].
-  exists x => //; apply/flatten_mapP.
-  by exists m => //; rewrite mem_filter m_in m_sorted.
-suff : exists2 m, m \in (msupp R) & has f (regr_gamma (msort m)).
-  move=> [m m_in m_f]; exists (msort m) => //; rewrite msort_sorted andbT.
-  have := (perm_eq_msort m); rewrite bla1 => /existsP[s /eqP <-].
-  by rewrite /mperm issym_msupp ?R_sym ?m_in.
-About R_msupp.
-Search _ 
-
-flatten
-     [seq msupp (mmsym complexR_ringType m)
-        | m <- [seq m0 <- msupp R | sorted leq (m0 : 'X_{1.. L.+1})]])
+have /letcifP := (Hprod h h_in).
+case: (boolP (m_of h == mm)) => [hm_eq _ | _]; last first.
+  by rewrite lttc_neqAle eqmpg eq_refl.
+move/negP: h_neq; apply; apply/eqP; rewrite -ffunP.
+apply/eqfunP/negPn; rewrite negb_forall; apply/negP => /existsP[f h_neqf].
+move=> {Hbmm bmm Pf_homog Pf_msupp r g Hflat H_g Hsum_b}.
+case: (boolP (injectiveb f)) => [ inj_f | /negbTE inj_f]; last first.
+  case: (boolP (h f == ord0)) => [/eqP h_ok | /negbTE h_ok]; last first.
+    have /pffun_onP[/supportP /=] := h_in; move/(_ f) => Hatt.
+    have : f \notin D.
+      apply/negP => f_in; move/injectiveP: inj_f; apply; apply/injectiveP.
+      by move: f_in; rewrite /D.
+    by move/Hatt/eqP; rewrite h_ok.
+  move: h_neqf; rewrite h_ok eq_sym => /negbTE f_ok.
+  have /pffun_onP[/supportP /=] := Hfmm; move/(_ f) => Hatt.
+  have : f \notin D.
+    apply/negP => f_in; move/injectiveP: inj_f; apply; apply/injectiveP.
+    by move: f_in; rewrite /D.
+  by move/Hatt/eqP; rewrite f_ok.
+suff : lttc (mpoly_gamma (m_of h)).@[gamma] (mpoly_gamma mm).@[gamma].
+  by move/eqP: hm_eq => ->; move/lttc_eqF; rewrite eq_refl.
+rewrite /m_of /mm (bigD1 f) //= [X in lttc _ (_ X).@[gamma]](bigD1 f) //=.
+rewrite !mpoly_gammaD !mevalD.
+apply/(@letc_lt_trans ((mpoly_gamma U_( (f (h f)))).@[gamma] + 
+    (mpoly_gamma (\sum_(i : 'I_L.+1 ^l.+1| injectiveb i && (i != f)) mf i)).@[gamma])); first last.
+  move: inj_f => /injectiveP inj_f.
+  rewrite lttc_add2r (lttc_letcif (Hf f _ _ _)) //.
+    rewrite /mf; apply/negP; move/eqP/mnm1_inj/inj_f => eq_h.
+    move/negP: h_neqf; apply; apply/eqP; rewrite eq_h /fmm ffunE.
+    by move/injectiveP : inj_f => ->.
+  by apply: codom_f.  
+apply: letc_add; first by rewrite letcc.
+apply/(big_rec2 (fun x y => letc (mpoly_gamma x).@[gamma] (mpoly_gamma y).@[gamma])).
+  rewrite /mpoly_gamma (eq_bigr (fun i => 0)); last first.
+    by move=> i _; rewrite mnmE mulr0n.
+  by rewrite big1 // letcc.
+move=> z x1 x2 /andP[inj_z z_neqf] H; rewrite !mpoly_gammaD !mevalD.
+apply: letc_add => //.
+apply: (letc_of_leif (Hf z (z (h z)) _ _)).
+  by apply/injectiveP.
+by apply: codom_f.
+Qed.
 
 
 
