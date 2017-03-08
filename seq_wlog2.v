@@ -8,7 +8,7 @@ Require Import Cstruct Rstruct.
 From SsrMultinomials
 Require Import finmap order mpoly.
 From Lind
-Require Import seq_ajouts seq_wlog3.
+Require Import seq_ajouts seq_wlog3 seq_wlog1.
 
 Set Implicit Arguments.
 Unset Strict Implicit.
@@ -1402,122 +1402,38 @@ move/leqifP; rewrite eq_refl ltnn.
 by case: (boolP (trivIset part)).
 Qed.
 
-
-
-
-
-
-Lemma f_part_subproof (i : 'I_final_l.+1) :
-  {f | (final_alpha i) \in f & f \in s_part}.
-Proof.
-have : (final_alpha i) \in dzeta_n0.
-  rewrite /final_alpha ffunE (tnth_nth 0) /= mem_nth //.
-  by have/eqP := final_l_gt0 => ->.
-rewrite -(perm_eq_mem (s2valP seq_conj)) => /flattenP/sig2W[x x_in in_x].
-exists (seq_fset x); first by rewrite seq_fsetE.
-set u := @seq_fset _.
-have -> : s_part = map u [seq (enum_fset (K:=complexR_choiceType) \o fst) i 
-                                                        | i <- s2val seq_conj].
-  rewrite -map_comp /s_part.
-  apply: eq_map => f; rewrite /= /u.
-  by apply/fsetP => y; rewrite seq_fsetE.
-by apply: map_f.
-Qed.
-
-(* fset dans lequel alpha i est *)
-Definition f_part := (fun i : 'I_final_l.+1 => (sval (f_part_subproof i) :
-    fset_eqType complexR_choiceType)).
-
-Definition part := preim_partition f_part [set: 'I_final_l.+1].
-
 Lemma part_partition : partition part [set: 'I_final_l.+1].
-Proof. by apply/preim_partitionP. Qed.
-
-(*
-Lemma part_f_part (f : {set 'I_final_l.+1}) i : i \in f -> f \in part -> 
-  f_part i = [fset final_alpha i | i in f]%fset.
-Proof.
-move=> i_in f_in; apply/fsetP => j; rewrite /f_part.
-have := (svalP(f_part_subproof i)); set g := sval _; move=> [in_g g_in].
-apply/idP/imfsetP => [j_in | ].
-  have : j \in dzeta_n0.
-    have := (s2valP seq_conj); set s := s2val _.
-    move/perm_eq_mem => <-; apply/flattenP.
-    exists (enum_fset g); rewrite ?enum_fsetE // map_comp -/s_part.
-    set u := (@enum_fset _ : fset_eqType _ -> _).
-    by apply: (@map_f _ _ u). (* TODO WTF ?!? *)
-  rewrite -/(tval (Tuple final_l_gt0)).
-  move/tnthP => [k eq_k]; exists k => //=.
-    have /and3P[part_cover part_triv part_nset0] := part_partition.
-    rewrite -(def_pblock part_triv f_in i_in).
-    rewrite pblock_equivalence_partition //.
-      rewrite [X in X == _]/f_part -/g /f_part.
-      have := (svalP(f_part_subproof k)); rewrite /final_alpha.*)
-
-Local Notation pred_set := finset.finset.
-
-Lemma part_pblock i :
-  pblock part i = pred_set (preim f_part (pred1 (f_part i))).
-Proof.
-have /and3P[part_cover part_triv part_nset0] := part_partition.
-have B_in : pred_set (preim f_part (pred1 (f_part i))) \in part.
-  rewrite /part /preim_partition /equivalence_partition /=.
-  apply/imsetP; exists i => //=.
-  by apply/setP => j /=; rewrite !in_set andTb /preim /= eq_sym.
-have i_in : i \in pred_set (preim f_part (pred1 (f_part i))).
-  by rewrite in_set /preim /=.
-by have := (def_pblock part_triv B_in i_in).
+Proof. 
+rewrite /partition; apply/and3P; split.
++ by rewrite /cover part_cover eq_refl.
++ by apply: part_triv.
+by apply: part_nset0.
 Qed.
-
-Lemma part_f_part i :  
-  f_part i = [fset final_alpha j | j in (pblock part i)]%fset.
-Proof.
-rewrite /f_part; have [] := (svalP (f_part_subproof i)).
-move eq_g : (sval _ : {fset _}) => g in_g g_in.
-apply/fsetP => x.
-apply/idP/imfsetP => [x_in | ].
-  have x_ind : x \in dzeta_n0.
-    have := (s2valP seq_conj); set s := s2val _.
-    move/perm_eq_mem => <-.
-    apply/flattenP.
-    exists (enum_fset g); rewrite ?enum_fsetE // map_comp -/s_part.
-    set u := (@enum_fset _ : fset_eqType _ -> _).
-    by apply: (@map_f _ _ u). 
-  have := x_ind; rewrite -/(tval (Tuple final_l_gt0)).
-  move/tnthP => [k]; rewrite -ffunE -/final_alpha => eq_k.
-  exists k => //=; rewrite part_pblock in_set /= {2}/f_part eq_g.
-  apply/eqP; rewrite /f_part.
-  have := (svalP (f_part_subproof k)); set h := (sval _ : {fset _}); rewrite -eq_k.
-  move=> [in_h h_in].
-  case: (boolP (h == g)) => [/eqP -> //| h_neqg].
-  have Hperm1 := (perm_to_rem g_in).
-  have : h \in rem g s_part.
-    rewrite mem_rem_uniq; first by rewrite inE h_neqg.
-    set u := (enum_fset (K:=complexR_choiceType) : fset_eqType _ -> seq_eqType _).
-    apply: (@map_uniq _ _ u); apply/negPn/negP => /negP.
 
 Lemma part_setZroots :
   {in part, forall P : {set 'I_final_l.+1},
   [fset (final_alpha i) | i in P]%fset \is a setZroots final_c}.
 Proof.
-move=> f f_in.
-have := (s2valP seq_conj); have /allP := (s2valP' seq_conj); set s := s2val _.
-move=> H.
-have : f != set0.
-  apply/negP => /eqP f_eq0.
-  have := part_partition; rewrite /partition => /and3P[_ _] /negP; apply.
-  by rewrite -f_eq0 f_in.
-move/set0Pn => [i i_in]; pose g := f_part i.
+move=> f f_in; apply/setZconj_over.
+move: f_in; rewrite part_eq inE => /mapP[i i_in ->].
+have /allP := all_sf; move/(_ i i_in).
+suff -> : [fsetval j in i]%fset = [fset final_alpha j | j in fis_oa i]%fset.
+  by [].
+apply/fsetP => j; rewrite /=.
+apply/imfsetP/imfsetP => [[x /= x_in ->] | [x /= x_in ->]].
+  exists (fi_oa x); first by rewrite /fis_oa; apply/imsetP; exists x.
+  by rewrite /final_alpha ffunE /= fi_oaK.
+exists (f_oa x); last by rewrite /final_alpha ffunE /=.
+by rewrite -[i]fis_oaK; apply/imfsetP; exists x.
+Qed.
 
 Definition final_b := finfun (sum_b \o final_alpha).
 
 Lemma final_b_neq0 : (forall i : 'I_final_l.+1, final_b i != 0).
 Proof.
-move=> i; rewrite ffunE /= ffunE.
-have : tnth (Tuple final_l_gt0) i \in dzeta_n0.
-  rewrite (tnth_nth 0) /= mem_nth //.
-  by apply/(leq_trans (ltn_ord i)); have /eqP -> := final_l_gt0.
-by rewrite mem_filter => /andP[].
+move=> i; rewrite ffunE /= ffunE /=.
+have : val (f_oa i) \in dzeta_n0 by apply/fsvalP.
+by rewrite inE /= => /andP[_].
 Qed.
 
 Lemma final_b_Cint : (forall i : 'I_final_l.+1, final_b i \is a Cint).
@@ -1527,21 +1443,129 @@ apply/rpred_sum => m _.
 by have /mpolyOverP := R_overCint; move/(_ m).
 Qed.
 
-{in part, forall P : {set 'I_l.+1}, constant [seq a i | i in P]}
+Lemma final_b_const :
+  {in part, forall P : {set 'I_final_l.+1}, constant [seq final_b i | i in P]}.
+Proof.
+move=> x x_in.
+have : x != set0.
+  apply/negP=> /eqP Heq.
+  by have /negP := part_nset0; rewrite -Heq; apply.
+move/set0Pn => [i i_in].
+have i_H : (final_alpha i) \in dzeta_n0 by rewrite /final_alpha ffunE /= fsvalP.
+apply/(@all_pred1_constant _ (sum_b (final_alpha i)))/allP => p /mapP[j].
+rewrite mem_enum => j_in -> /=; rewrite /final_b ffunE /= eq_sym.
+apply/eqP/(@conj_dzeta_n0_sum_b _ _ i_H).
+set f := fs_oa x.
+have f_in : f \in sf by rewrite sf_mem /f -part_sf_mem.
+have /allP := all_sf; move/(_ f f_in).
+set g := [fset _ in _ ]%fset => g_conj.
+have i_inb : final_alpha i \in g.
+  rewrite /final_alpha /g ffunE /f /=.
+  apply/imfsetP; exists (f_oa i) => //=.
+  by rewrite /fs_oa /=; apply/imfsetP; exists i => //=.
+rewrite -(conjOf_pi _ (setZconj_algebraic i_inb g_conj)).
+apply: conjOf_setZconj.
+rewrite /final_alpha /g ffunE /f /=.
+apply/imfsetP; exists (f_oa j) => //=.
+by rewrite /fs_oa /=; apply/imfsetP; exists j => //=.
+Qed.
+
+
+Lemma wlog2_eq0 :
+  Cexp_span final_b final_alpha == 0.
+Proof.
+have /eqP <- := prod_Cexp_span_gamma_eq0; rewrite -R_Cexp_span_eq0.
+rewrite regr_gamma_R dzeta_regr_gamma_eq0 /Cexp_span /final_b /final_alpha /=.
+rewrite (eq_bigr (fun i => sum_b (val (f_oa i)) * Cexp (val (f_oa i)))); last first.
+  by move=> i _; rewrite /= !ffunE /= !ffunE /= !ffunE /=.
+rewrite -(big_map (val \o f_oa) xpredT (fun i => sum_b i * Cexp i)) /=.
+rewrite map_comp.
+pose P := (fun i => sum_b i != 0). 
+have Hperm :  perm_eq (enum_fset dzeta) ((filter P (enum_fset dzeta)) ++
+  (filter (predC P) (enum_fset dzeta))).
+  by rewrite perm_eq_sym (perm_eqlE (perm_filterC _ _)).
+rewrite (eq_big_perm _ Hperm) /= big_cat /=.
+rewrite [X in _ + X]big_filter [X in _ + X]big1 ?addr0; last first.
+  by move=> x /=; move/negPn/eqP => ->; rewrite mul0r.
+apply/eqP/eq_big_perm/uniq_perm_eq; rewrite ?map_inj_uniq.
++ by rewrite /index_enum -enumT enum_uniq.
++ by apply/(can_inj (f_oaK)).
++ by apply/val_inj.
++ by rewrite filter_uniq // enum_fset_uniq.
+move => x; rewrite mem_filter /P -map_comp.
+apply/mapP/andP => [[i _ -> /=] | [Hb Hin]].
+  have : fsval (f_oa i) \in dzeta_n0 by apply/fsvalP.
+  by rewrite inE /= => /andP[-> ->].  
+have : x \in enum_fset dzeta_n0 by rewrite inE /= Hin Hb.
+rewrite -val_fset_sub_enum ?enum_fset_uniq // => /mapP[i i_in ->].
+by exists (fi_oa i); rewrite ?mem_index_enum //= fi_oaK.
+Qed.
+
+(* Theoreme wlog2 *)
+Lemma wlog2 : 
+  exists (f_l : nat) (f_c : complexR) (f_alpha : complexR ^ f_l.+1) 
+  (f_a : complexR ^ f_l.+1) (f_part : {set {set 'I_f_l.+1}}),
+  f_c != 0 /\ f_c \is a Cint /\ injective f_alpha /\ 
+  partition f_part [set: 'I_f_l.+1] /\ {in f_part, forall P : {set 'I_f_l.+1},
+  [fset (f_alpha i) | i in P]%fset \is a setZroots f_c} /\
+  (forall i : 'I_f_l.+1, f_a i != 0) /\ (forall i : 'I_f_l.+1, f_a i \is a Cint) /\
+  {in f_part, forall P : {set 'I_f_l.+1}, constant [seq f_a i | i in P]} /\ 
+  Cexp_span f_a f_alpha == 0.
+Proof.
+exists final_l; exists final_c; exists final_alpha; exists final_b; exists part.
+split; first by apply: final_c_neq0.
+split; first by apply: final_c_Cint.
+split; first by apply: final_alpha_injective.
+split; first by apply: part_partition.
+split; first by apply: part_setZroots.
+split; first by apply: final_b_neq0.
+split; first by apply: final_b_Cint.
+split; first by apply: final_b_const.
+by apply: wlog2_eq0.
+Qed.
+
+End Wlog2. 
 
 
 
+Theorem wlog2_Lindemann :
+  (forall (l : nat) (c : complexR) (alpha : complexR ^ l.+1) 
+  (part : {set {set 'I_l.+1}}) (a : complexR ^ l.+1),
+  c != 0 -> c \is a Cint -> injective alpha -> 
+  partition part [set: 'I_l.+1] -> {in part, forall P : {set 'I_l.+1},
+  [fset (alpha i) | i in P]%fset \is a setZroots c} ->
+  (forall i : 'I_l.+1, a i != 0) -> (forall i : 'I_l.+1, a i \is a Cint) ->
+  {in part, forall P : {set 'I_l.+1}, constant [seq a i | i in P]} -> 
+  Cexp_span a alpha != 0) ->
+  (forall (l : nat) (alpha : complexR ^ l.+1) (a : complexR ^ l.+1),
+  injective alpha -> (forall i : 'I_l.+1, alpha i is_algebraic) ->
+  (forall i : 'I_l.+1, a i != 0) -> (forall i : 'I_l.+1, a i \is a Cint) ->
+  (Cexp_span a alpha != 0)).
+Proof. 
+move => ih l alpha a alpha_inj alpha_alg a_neq0 a_Cint; apply/negP => Hspan.
+move: (wlog2 alpha_inj alpha_alg a_neq0 a_Cint Hspan) => [fl [fc [falpha]]].
+move=> [fa [fpart]] [] fc_neq0 [] fc_Cint [] falpha_inj [] fpart_part [].
+move=> fpart_conj [] fa_neq0 [] fa_Cint [] fa_const Hspan_eq0.
+move: (ih fl fc falpha fpart fa fc_neq0 fc_Cint falpha_inj fpart_part fpart_conj
+  fa_neq0 fa_Cint fa_const).
+by rewrite Hspan_eq0.
+Qed.
 
 
-About seqroots_decomp_polyMin.
-.seqroots_decomp_polyMin :
-forall (a : seq complexR) (c : complexR),
-c != 0 ->
-c *: \prod_(x <- a) ('X - x%:P) \is a polyOver Cint ->
-{s : seq (prod_eqType (fset_eqType complexR_choiceType) complexR_eqType) |
-perm_eq (flatten [seq (enum_fset (K:=complexR_choiceType) \o fst) i | i <- s]) a &
-all (fun x : prod_eqType (fset_eqType complexR_choiceType) complexR_eqType => x.1 \is a setZconj x.2)
-  s}
+Theorem Lindemann : forall (l : nat) (alpha : complexR ^ l) (a : complexR ^ l),
+  (0%N < l)%N -> injective alpha -> (forall i : 'I_l, alpha i is_algebraic) ->
+  (forall i : 'I_l, a i != 0) -> (forall i : 'I_l, a i is_algebraic) ->
+  (Cexp_span a alpha != 0).
+Proof.
+apply: wlog1_Lindemann.
+apply: wlog2_Lindemann.
+by apply: Lindemann_last.
+Qed.
+
+
+
+Print Assumptions Lindemann.
+
 (* musique : 40:50 3x02 *)
 
 
@@ -1563,13 +1587,15 @@ all (fun x : prod_eqType (fset_eqType complexR_choiceType) complexR_eqType => x.
 
 
 
-(*
+
 (* regroupement des coeffs en enlevant les doublons de gamma *)
 (* ils sont mis dans le même ordre *)
-Definition dzeta := undup (flatten [seq regr_gamma m | m <- 
+(*Definition dzeta := undup (flatten [seq regr_gamma m | m <- 
    [seq m1 <- msupp R | sorted leq (m1 : 'X_{1..L.+1})]]).
 Definition sum_b := 
    (fun x => (\sum_(m <- msupp R | (mpoly_gamma m).@[gamma] == x) R@_m)).
+
+
 
 Lemma R_re (T : comRingType) (f : 'X_{1..L.+1} -> T) :
   \sum_(m <- msupp R) f m =
@@ -1785,8 +1811,8 @@ case: (eqVneq _ _) => [x_inb | ]; last by rewrite x_in.
 by rewrite lead_coef_eq0 polyMin_neq0.
 Qed.
 
-Definition final_l := (size dzeta_n0).-1.
-
+Definition final_l := (size dzeta_n0).-1.*)
+(*
 Lemma final_l_gt0 : size dzeta_n0 == final_l.+1.
 Proof.
 apply/eqP; rewrite /final_l prednK // size_filter -has_count /dzeta.
@@ -2042,8 +2068,8 @@ have -> : s_part = map u [seq (enum_fset (K:=complexR_choiceType) \o fst) i
   by apply/fsetP => y; rewrite seq_fsetE.
 by apply: map_f.
 Qed.
-
-(* fset dans lequel alpha i est *)
+*)
+(* fset dans lequel alpha i est *)(*
 Definition f_part := (fun i : 'I_final_l.+1 => (sval (f_part_subproof i) :
     fset_eqType complexR_choiceType)).
 
@@ -2280,18 +2306,7 @@ c *: \prod_(x <- a) ('X - x%:P) \is a polyOver Cint ->
 {s : seq (prod_eqType (fset_eqType complexR_choiceType) complexR_eqType) |
 perm_eq (flatten [seq (enum_fset (K:=complexR_choiceType) \o fst) i | i <- s]) a &
 all (fun x : prod_eqType (fset_eqType complexR_choiceType) complexR_eqType => x.1 \is a setZconj x.2)
-  s}
+  s}*)
 (* musique : 40:50 3x02 *)
 
 
-
-
-
-(* But : Lemma wlog3 l c (alpha : complexR ^ l.+1) (part : {set {set 'I_l.+1}}) 
-  (a : complexR ^ l.+1) :
-  c != 0 -> c \is a Cint -> injective alpha -> 
-  partition part [set: 'I_l.+1] -> {in part, forall P : {set 'I_l.+1},
-  [fset (alpha i) | i in P]%fset \is a setZroots c} ->
-  (forall i : 'I_l.+1, a i != 0) -> (forall i : 'I_l.+1, a i \is a Cint) ->
-  {in part, forall P : {set 'I_l.+1}, constant [seq a i | i in P]} -> 
-  Cexp_span a alpha != 0. *)
