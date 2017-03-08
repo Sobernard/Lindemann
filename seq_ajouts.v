@@ -3202,6 +3202,98 @@ apply/negP=> /eqP eq_ma.
 by move: x_in; rewrite eq_ma.
 Qed.
 
+About seqroots_decomp_polyMin.
+(* forall (a : seq complexR) (c : complexR),
+c != 0 ->
+c *: \prod_(x <- a) ('X - x%:P) \is a polyOver Cint ->
+{s : seq (prod_eqType (fset_eqType complexR_choiceType) complexR_eqType) |
+perm_eq (flatten [seq (enum_fset (K:=complexR_choiceType) \o fst) i | i <- s]) a &
+all (fun x : prod_eqType (fset_eqType complexR_choiceType) complexR_eqType => 
+x.1 \is a setZconj x.2)  s} *)
+
+Lemma seqroots_decomp_polyMin_fset (a : {fset complexR}) (c : complexR) (o : a) :
+  c != 0 -> c *: \prod_(x <- enum_fset a) ('X - x%:P) \is a polyOver Cint -> 
+  {s  : seq ({fset (fset_sub_eqType a)} * complexR) | 
+    (perm_eq (flatten (map (fun x : {fset (fset_sub_eqType a)} * complexR => 
+   filter (fun y => y \in x.1) (enum {: a})) s)) (enum {: a})) &
+    (all (fun x : {fset (fset_sub_eqType a)} * complexR_eqType
+      => [fset val i | i in x.1]%fset \is a setZconj x.2) s)}.
+Proof.
+set l := enum_fset a => H1 H2.
+have [s Hperm /allP Hall] := (seqroots_decomp_polyMin H1 H2).
+pose f := (fun (x : {fset complexR}) => [fset y in enum {:a } | val y \in x]%fset).
+exists (map (fun x => (f x.1, x.2)) s).
+  have H (T : eqType) (T' : eqType) (u : seq T) v (g : T -> T') (x : T) : 
+       injective g -> perm_eq (map g u) (map g v) -> perm_eq u v.
+    move=> inj_g; move/perm_eq_iotaP; move/(_ (g x)) => [p].
+    set q := seq.iota _ _; move => Hpq Heq.
+    apply/(@perm_eq_iotaP _ u v x); exists p.
+      by have -> // : seq.iota 0 (size v) = q by rewrite /q size_map.
+    apply/(@eq_from_nth _ x); first rewrite size_map.
+      by move/(congr1 size): Heq; rewrite !size_map.
+    move=> i i_ord; apply/inj_g; rewrite -!(nth_map _ (g x)) //; last first.
+      by rewrite size_map; move/(congr1 size): Heq; rewrite !size_map => <-.
+    rewrite Heq -map_comp; congr (nth _ _ _).
+    apply: eq_map => j /=.
+    case: (boolP (j < size v)%N); first by apply: nth_map.
+    by rewrite -leqNgt => Hj; rewrite !nth_default ?size_map.
+  have Hl : map val (enum {: a}) = l.
+    rewrite /l -val_fset_sub_enum ?enum_fset_uniq //.
+    congr (map _ _); rewrite /(enum _) unlock /= /fset_sub_enum filter_undup.
+    by congr undup; rewrite filter_xpredT.
+  move: Hperm; rewrite -Hl => Hperm.
+  have Hflat (T : eqType) (T' : eqType) (r : seq (seq T)) (g : T -> T') :
+    map g (flatten r) = flatten (map (fun x => map g x) r).
+    by elim: r => [//= | x r /= <-]; rewrite map_cat.
+  have Hf : perm_eq (flatten [seq (enum_fset (K:=complexR_choiceType) \o fst) i | i <- s])
+    (map val (flatten [seq [seq y <- enum {: a} | y \in x.1] | x <- [seq (f x.1, x.2) | x <- s]])).
+    rewrite Hflat.
+    move eq_s : s => t.
+    have {eq_s} : subseq t s by rewrite eq_s.
+    elim: t => [//= | x t iht /= tx_sub].
+    have t_sub : subseq t s. 
+      by apply/(subseq_trans (subseq_cons _ _) tx_sub).
+    move: iht; rewrite -(perm_cat2l (enum_fset x.1)).
+    move/(_ t_sub).
+    move/perm_eq_trans; apply; rewrite perm_cat2r.
+    apply/uniq_perm_eq; first by apply/enum_fset_uniq.
+      rewrite map_inj_uniq; first by rewrite filter_uniq ?enum_uniq //.
+      by move=> u v /val_inj.
+    move=> i.
+    apply/idP/mapP => [i_in | [j]]; last first.
+      by rewrite mem_filter /f inE /= => /andP[/andP[_ Hj] _ ->].
+    have : i \in [seq val j | j <- enum {: a}]. 
+      rewrite -(perm_eq_mem Hperm).
+      apply/flattenP; exists (enum_fset x.1) => //.
+      set u := (@enum_fset _ : {fset complexR} -> seq complexR).
+      set v := u \o fst.
+      have -> : u x.1 = v x by [].
+      apply: (map_f v); rewrite -sub1seq.
+      by apply: (subseq_trans _ tx_sub) => /=; rewrite eq_refl sub0seq.
+    move/mapP => [j j_in eq_j]; exists j=> //; rewrite mem_filter j_in /f andbT.
+    apply/imfsetP => /=; exists j => //=; apply/andP; rewrite j_in; split => //.
+    by rewrite -eq_j.
+  move: Hf; rewrite perm_eq_sym => Hf.  
+  have := (perm_eq_trans Hf Hperm).
+  by apply: (H _ _ _ _ _ o); apply/val_inj.
+apply/allP => x x_in.
+move: (Hall ([fsetval i in x.1]%fset,x.2)) => /=; apply.
+move/mapP: x_in => [[y1 y2] y_in -> /=].
+suff -> : [fset (fsval i) | i in f y1]%fset = y1 by [].
+apply/fsetP => z.
+apply/imfsetP/idP => [[u /=] | z_in].
+  by rewrite /f; rewrite inE /= => /andP[_ u_in ->].
+have : z \in l.
+  rewrite -(perm_eq_mem Hperm).
+  apply/flattenP; exists (enum_fset y1); last by [].
+  set u := @enum_fset _.
+  have -> : u y1 = (u \o fst) (y1, y2) by [].
+  by apply/map_f.
+rewrite /l -val_fset_sub_enum ?enum_fset_uniq // => /mapP[u u_in eq_u /=].
+exists u => //; rewrite /f inE /=.
+by apply/andP; rewrite -eq_u z_in mem_enum.
+Qed.
+
 
 
 (*
