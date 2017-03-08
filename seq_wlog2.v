@@ -990,7 +990,7 @@ Proof. by rewrite cardT (elimT eqP final_l_gt0) card_ord. Qed.
 
 Definition A := (@enum_val _ 'I_final_l.+1 : _ -> 'I_final_l.+1).
 Definition B := (@enum_rank (fset_sub_finType dzeta_n0)).
-Definition fi_oa := finfun (A \o (cast_ord eq_oa) \o B).
+Definition fi_oa := (finfun (A \o (cast_ord eq_oa) \o B) : {ffun {: dzeta_n0} -> 'I_final_l.+1}).
 
 Lemma eq_f_oa : finfun ((@enum_val _ {: dzeta_n0}) \o
   (cast_ord (esym eq_oa)) \o (@enum_rank (ordinal_finType final_l.+1))) = f_oa.
@@ -1020,95 +1020,387 @@ move=> x y; rewrite /final_alpha !ffunE /=.
 by move/val_inj/f_oa_inj.
 Qed.
 
-Definition seq_conj := seqroots_decomp_polyMin_fset (f_oa ord0)
-  (s2valP' (sig2W dzeta_n0_conj)) (s2valP (sig2W dzeta_n0_conj)). 
+Lemma perm_eq_map_inj (T : eqType) (T' : eqType) (u : seq T) v (g : T -> T') (x : T) : 
+       injective g -> perm_eq (map g u) (map g v) -> perm_eq u v.
+Proof.
+move=> inj_g; move/perm_eq_iotaP; move/(_ (g x)) => [p].
+set q := seq.iota _ _; move => Hpq Heq.
+apply/(@perm_eq_iotaP _ u v x); exists p.
+  by have -> // : seq.iota 0 (size v) = q by rewrite /q size_map.
+apply/(@eq_from_nth _ x); first rewrite size_map.
+  by move/(congr1 size): Heq; rewrite !size_map.
+move=> i i_ord; apply/inj_g; rewrite -!(nth_map _ (g x)) //; last first.
+  by rewrite size_map; move/(congr1 size): Heq; rewrite !size_map => <-.
+rewrite Heq -map_comp; congr (nth _ _ _).
+apply: eq_map => j /=.
+case: (boolP (j < size v)%N); first by apply: nth_map.
+by rewrite -leqNgt => Hj; rewrite !nth_default ?size_map.
+Qed.
 
-Definition part := (\bigcup_(f <- (s2val seq_conj)) 
-                             [set [set i : 'I_final_l.+1 | f_oa i \in f.1]]).
-About preim.
+Lemma flatten_map (T : eqType) (T' : eqType) (r : seq (seq T)) (g : T -> T') :
+    map g (flatten r) = flatten (map (fun x => map g x) r).
+Proof. by elim: r => [//= | x r /= <-]; rewrite map_cat. Qed.
 
-Lemma part_partition : partition part [set: 'I_final_l.+1].
-Proof. 
-have part0 : set0 \notin part.
-  apply/negP; rewrite /part.
-  rewrite -(big_map fst xpredT (fun (f : {fset fset_sub_finType dzeta_n0}) => 
-                                                [set [set i | f_oa i \in f]])).
-set s := [seq fst _ | _ <- _].
-rewrite inE.
+Lemma Hl : map val (enum {: dzeta_n0}) = enum_fset dzeta_n0.
+Proof.
+rewrite -val_fset_sub_enum ?enum_fset_uniq //.
+congr (map _ _); rewrite /(enum _) unlock /= /fset_sub_enum filter_undup.
+by congr undup; rewrite filter_xpredT.
+Qed.
+
+Definition seq_conj := seqroots_decomp_polyMin
+  (s2valP' (sig2W dzeta_n0_conj)) (s2valP (sig2W dzeta_n0_conj)).
+Notation s := (s2val seq_conj).
+Notation Hperm := (s2valP seq_conj).
+Notation Hall := (s2valP' seq_conj).
+Notation f := (fun (x : {fset complexR}) => [fset y in enum {: dzeta_n0} | val y \in x]%fset).
+Definition s_fset := (map (fun x => (f x.1, x.2)) s).
+Definition sf := map fst s_fset.
+
+Lemma Hf : perm_eq (flatten [seq (enum_fset (K:=complexR_choiceType) \o fst) i | i <- s])
+    (map val (flatten [seq [seq y <- enum {: dzeta_n0} | y \in x.1] | x <- [seq (f x.1, x.2) | x <- s]])).
+Proof.
+rewrite flatten_map.
+move eq_s : s => t.
+have {eq_s} : subseq t s by rewrite eq_s.
+elim: t => [//= | x t iht /= tx_sub].
+have t_sub : subseq t s. 
+  by apply/(subseq_trans (subseq_cons _ _) tx_sub).
+move: iht; rewrite -(perm_cat2l (enum_fset x.1)).
+move/(_ t_sub).
+move/perm_eq_trans; apply; rewrite perm_cat2r.
+apply/uniq_perm_eq; first by apply/enum_fset_uniq.
+  rewrite map_inj_uniq; first by rewrite filter_uniq ?enum_uniq //.
+  by move=> u v /val_inj.
+move=> i.
+apply/idP/mapP => [i_in | [j]]; last first.
+  by rewrite mem_filter /f inE /= => /andP[/andP[_ Hj] _ ->].
+have : i \in [seq val j | j <- enum {: dzeta_n0}]. 
+  rewrite Hl -(perm_eq_mem Hperm).
+  apply/flattenP; exists (enum_fset x.1) => //.
+  set u := (@enum_fset _ : {fset complexR} -> seq complexR).
+  set v := u \o fst.
+  have -> : u x.1 = v x by [].
+  apply: (map_f v); rewrite -sub1seq.
+  by apply: (subseq_trans _ tx_sub) => /=; rewrite eq_refl sub0seq.
+move/mapP => [j j_in eq_j]; exists j=> //; rewrite mem_filter j_in /f andbT.
+apply/imfsetP => /=; exists j => //=; apply/andP; rewrite j_in; split => //.
+by rewrite -eq_j.
+Qed.
+
+Lemma perm_eq_sf : (perm_eq (flatten (map (fun x => 
+ filter (fun y => y \in x) (enum {: dzeta_n0})) sf)) (enum {: dzeta_n0})).
+Proof.
+rewrite /sf -map_comp.
+rewrite (@eq_map _ _ _ (fun x  => [seq y <- enum {: dzeta_n0} | y \in x.1])).
+  apply:(@perm_eq_map_inj _ _ _ _ val (f_oa ord0)); first by apply/val_inj.
+  rewrite Hl.
+  have Hf := Hf; rewrite perm_eq_sym in Hf.
+  by apply/(perm_eq_trans Hf Hperm).
+by move=> i /=.
+Qed.
+
+Lemma perm_eq_sf_proper : perm_eq (flatten (map (@enum_fset _) sf)) (enum {: dzeta_n0}).
+Proof.
+apply/(perm_eq_trans _ perm_eq_sf).
+elim: sf => [//= | x lx /=].
+rewrite -(perm_cat2l (enum_fset x)).
+move/perm_eq_trans; apply; rewrite perm_cat2r.
+apply: uniq_perm_eq; first by apply/enum_fset_uniq.
+  by apply/filter_uniq/enum_uniq.
+move=> y; rewrite mem_filter.
+by apply/idP/idP => [-> /= | /andP[-> _] //]; rewrite mem_enum.
+Qed.
+
+Lemma all_s_fset : all (fun (x : {fset (fset_sub_eqType dzeta_n0)} * complexR_eqType)
+      => [fset val i | i in x.1]%fset \is a setZconj x.2) s_fset.
+Proof.
+apply/allP => x x_in.
+have /allP := Hall; move/(_ ([fsetval i in x.1]%fset,x.2)) => /=; apply.
+move/mapP: x_in => [[y1 y2] y_in -> /=].
+suff -> : [fset (fsval i) | i in f y1]%fset = y1 by [].
+apply/fsetP => z.
+apply/imfsetP/idP => [[u /=] | z_in].
+  by rewrite /f; rewrite inE /= => /andP[_ u_in ->].
+have : z \in enum_fset dzeta_n0.
+  rewrite -(perm_eq_mem Hperm).
+  apply/flattenP; exists (enum_fset y1); last by [].
+  set u := @enum_fset _.
+  have -> : u y1 = (u \o fst) (y1, y2) by [].
+  by apply/map_f.
+rewrite -val_fset_sub_enum ?enum_fset_uniq // => /mapP[u u_in eq_u /=].
+exists u => //; rewrite /f inE /=.
+by apply/andP; rewrite -eq_u z_in mem_enum.
+Qed.
+
+Definition final_c := \prod_(x <- s2val seq_conj) x.2.
 
 
+Lemma final_c_neq0 : final_c != 0.
+Proof.
+rewrite prodf_seq_neq0.
+apply/allP.
+have := (s2valP seq_conj); have /allP := (s2valP' seq_conj); set s := s2val _.
+move=> /= Hall Hperm [f x] /=.
+move/(Hall (f, x)) => /=; move/setZconj_neq0; rewrite -lead_coef_eq0.
+rewrite lead_coefZ (monicP _) ?mulr1 //.
+by apply/monic_prod_XsubC.
+Qed.
 
-About bigcup_seq.
-Search _ "fs" "finType".
-rewrite (bigcup_seq s (fun (f : fset_sub_finType dzeta_n0) => 
-                                                [set [set i | f_oa i \in f]])).
-Search _ "cup".
+Lemma final_c_Cint : final_c \is a Cint.
+Proof.
+rewrite /final_c.
+have := (s2valP seq_conj); have /allP := (s2valP' seq_conj); set s := s2val _.
+move=> /= Hall Hperm; rewrite big_seq_cond.
+apply/rpred_prod => [[f x] /andP[/= x_in] _].
+by move: (Hall (f, x) x_in) => /=; move/setZconj_over/set_roots_lead_coef.
+Qed.
 
+Lemma all_sf : all (fun x : {fset (fset_sub_eqType dzeta_n0)} =>
+    [fset val i | i in x]%fset \is a setZconj final_c) sf.
+Proof.
+apply/allP => x; rewrite /sf => /mapP[xp xp_in ->].
+have /allP := all_s_fset; move/(_ xp xp_in) => {x}.
+set fi := [fsetval _ in _]%fset => fi_set.
+have /closed_rootP[y] := (setZconj_size fi_set).
+rewrite rootZ ?root_prod_XsubC; last first.
+  by move/setZconj_neq0 : fi_set; rewrite scaler_eq0 negb_or => /andP[].
+move=> y_in; have y_alg := (setZconj_algebraic y_in fi_set).
+apply/(@setZconj_find _ _ y y_alg y_in).
++ have /mapP[xs xs_in eq_xs] := xp_in.
+  rewrite /final_c.
+  have Hrem := (perm_to_rem xs_in).
+  rewrite (eq_big_perm _ Hrem) /= big_cons.
+  rewrite mulrC -scalerA ( _ : xs.2 = xp.2); last by rewrite eq_xs.
+  apply/polyOverZ; last by apply: (setZconj_over fi_set).
+  rewrite big_seq_cond; apply/rpred_prod => i /andP[i_in _].
+  have i_ins: i \in s by apply/(mem_rem i_in).
+  have /allP := (s2valP' seq_conj); move/(_ i i_ins)/setZconj_over.
+  rewrite set_rootsE; move/polyOverP => Hover.
+  have -> : i.2 = lead_coef (i.2 *: \prod_(x <- enum_fset i.1) ('X - x%:P)).
+    by rewrite lead_coefZ (monicP _) ?mulr1 //; apply/monic_prod_XsubC.
+  by apply/Hover.
++ have /mapP[xs xs_in eq_xs] := xp_in.
+  rewrite /final_c.
+  have Hrem := (perm_to_rem xs_in).
+  rewrite (eq_big_perm _ Hrem) /= big_cons.
+  rewrite mulrC -scalerA ( _ : xs.2 = xp.2); last by rewrite eq_xs.
+  rewrite size_scale; last first.
+    rewrite prodf_seq_neq0.
+    apply/allP => i /mem_rem i_in; apply/implyP => _.
+    have -> : i.2 = lead_coef (i.2 *: \prod_(x <- enum_fset i.1) ('X - x%:P)).
+      by rewrite lead_coefZ (monicP _) ?mulr1 //; apply/monic_prod_XsubC.
+    rewrite lead_coef_eq0.
+    by have /allP := (s2valP' seq_conj); move/(_ i i_in)/setZconj_neq0.
+  rewrite ltn_neqAle eq_sym lt0n size_poly_eq0.
+  have /allP := all_s_fset; move/(_ xp xp_in) => H.
+  by rewrite (setZconj_neq0 H) (setZconj_size H).
+apply/allP => x x_in.
+apply/seqrootsP; first by apply: polyMin_neq0.
+rewrite -conjOfE (conjOf_pi _ _ (setZconj_algebraic y_in fi_set)).
+by apply: conjOf_setZconj.
+Qed.
 
-rewrite /partition; apply/and3P; split.
-Focus 2.
+Definition sf_part : {fset {fset {: dzeta_n0}}} := 
+    (\bigcup_(x <- sf) [fset x]%fset)%fset.
 
+Lemma sf_part_eq : seq_fset sf = sf_part.
+Proof.
+rewrite /sf_part.
+elim: sf => [/= | x s]. 
+  rewrite big_nil /=.
+  by apply/fsetP => i; rewrite seq_fsetE.
+by rewrite fset_cons => ->; rewrite big_cons.
+Qed.
 
+Lemma sf_mem : sf =i sf_part.
+Proof. by move=> i; rewrite -sf_part_eq seq_fsetE. Qed.
 
-+ rewrite /cover /part.
-  apply/eqP/setP => x; apply/idP/idP => [_ // | _].
-  rewrite partition_disjoint_bigcup.
+Lemma sf_part_cover : [fset x in {: dzeta_n0}]%fset =
+   (\big[@fsetU _/fset0]_(i : sf_part) (val i))%fset.
+Proof.
+apply/fsetP => x.
+apply/imfsetP/idP => [[y /= y_in ->] | _]; last by exists x.
+move : y_in => {x} ; rewrite -mem_enum -(perm_eq_mem perm_eq_sf_proper).
+move=> /flattenP => [[x]].
+set u := (@enum_fset _ : {fset {: dzeta_n0}} -> seq {: dzeta_n0}).
+move/(@mapP _ _ u sf x) => [z z_in ->]; rewrite /u => y_in.
+have : z \in enum_fset sf_part.
+  rewrite /sf_part big_tnth.
+  apply/bigfcupP; move: z_in; rewrite -{1}[sf]/(tval (in_tuple sf)).
+  by move/tnthP => [i eq_z]; exists i => //; rewrite -eq_z inE.
+rewrite -val_fset_sub_enum; last by apply/enum_fset_uniq.
+set v := @val _ _; move/mapP => [zz zz_in eq_zz].
+by apply/bigfcupP; exists zz => //; move: eq_zz; rewrite /v => <-.
+Qed.
 
-  apply/bigcupP; exists [set x]; rewrite ?inE //.
-  have : \bigcup_(i <- flatten [seq [seq y <- enum {: dzeta_n0} | y \in x.1] 
-     | x <- s2val seq_conj]) [set (fi_oa i)] = [set: 'I_final_l.+1].
-    have HP := (s2valP seq_conj).
-    rewrite (eq_big_perm _ HP) /=.
-    rewrite -(big_map fi_oa xpredT (fun i => [set i])).
+Definition fis_oa := (fun x : {fset {: dzeta_n0}} =>
+   [set (fi_oa i) | i in x] : {set 'I_final_l.+1}).
+Definition fs_oa := (fun x : {set 'I_final_l.+1} =>
+   [fset (f_oa i) | i in x]%fset : {fset {: dzeta_n0}}).
 
-Search _ "cup".
-  
-Search _ flatten.
-partition_disjoint_bigcup:
-  forall (T I : finType) (R : Type) (idx : R) (op : Monoid.com_law idx) (F : I -> {set T})
-    (E : T -> R),
-  (forall i j : I, i != j -> [disjoint F i & F j]) ->
-  \big[op/idx]_(x in \bigcup_i F i) E x = \big[op/idx]_i \big[op/idx]_(x in F i) E x
+Lemma fs_oaK : cancel fs_oa fis_oa.
+Proof.
+move=> x; rewrite /fis_oa /fs_oa.
+apply/setP => i.
+apply/imsetP/idP => [[y /imfsetP[j /= j_in -> ->]] | i_in].
+  by rewrite f_oaK.
+exists (f_oa i); last by rewrite f_oaK.
+by apply/imfsetP; exists i => //=.
+Qed.
 
-  rewrite -(big_map fst xpredT (fun (f : {fset fset_sub_finType dzeta_n0}) => 
-                                                [set [set i | f_oa i \in f]])).
-  
-About bigcupP. 
-About  bigcup_seq.
+Lemma fis_oaK : cancel fis_oa fs_oa.
+Proof.
+move=> x; rewrite /fis_oa /fs_oa.
+apply/fsetP => i.
+apply/imfsetP/idP => [[y /imsetP[j /= j_in -> ->]] | i_in].
+  by rewrite fi_oaK.
+exists (fi_oa i); last by rewrite fi_oaK.
+by apply/imsetP; exists i => //=.
+Qed.
 
-Search _ flatten.
+Definition part : {set {set 'I_final_l.+1}} := 
+     \bigcup_(x <- sf) [set (fis_oa x)].
 
-seq_conj:
-  {s : seq ({fset fset_sub_eqType dzeta_n0} * complexR) |
-  perm_eq (flatten [seq [seq y <- enum {: dzeta_n0} | y \in x.1] | x <- s]) (enum {: dzeta_n0}) &
-  all
-    (fun x : {fset fset_sub_eqType dzeta_n0} * complexR_eqType =>
-     [fsetval i in x.1]%fset \is a setZconj x.2) s}
+Lemma part_eq : part = [set i | i \in (map fis_oa sf)].
+Proof.
+rewrite /part.
+elim: sf => [/= | x s]. 
+  by rewrite big_nil; apply/setP => i.
+by rewrite big_cons => -> /=; apply/setP => i; rewrite !inE.
+Qed.
 
-Check (bigcup_seq (s2val
+Lemma part_sf_mem x : (x \in part) = (fs_oa x \in sf_part).
+Proof.
+rewrite part_eq /= !inE.
+apply/mapP/idP => [[y y_in ->] | ]; first by rewrite fis_oaK -sf_mem.
+by rewrite -sf_mem => Hin; exists (fs_oa x) => //; rewrite fs_oaK.
+Qed.
 
-About f_oa.
-About final_alpha.
+Lemma part_cover : [set: 'I_final_l.+1] = \bigcup_(i in part) i.
+Proof.
+apply/setP => x.
+apply/idP/idP => [_ | _ //].
+have : f_oa x \in [fset x in {: dzeta_n0}]%fset.
+  apply/imfsetP; exists (f_oa x) => //.
+rewrite sf_part_cover => /bigfcupP[y _ in_y].
+apply/bigcupP.
+exists (fis_oa (val y)); last first.
+  by rewrite /fis_oa -[x]f_oaK; apply/imsetP; exists (f_oa x).
+rewrite /part big_tnth.
+apply/bigcupP.
+suff : (val y) \in in_tuple sf.
+  by move/tnthP => [i ->]; exists i => //; rewrite inE.
+have : val y \in enum_fset sf_part.
+  rewrite -val_fset_sub_enum; last by apply/enum_fset_uniq.
+  by apply/mapP; exists y => //; rewrite mem_fset_sub_enum.
+rewrite /sf_part [X in enum_fset X]big_tnth => /bigfcupP[i _].
+by rewrite inE => /eqP ->; rewrite mem_tnth.
+Qed.
 
+Lemma part_nset0 : set0 \notin part.
+Proof.
+apply/negP; rewrite part_sf_mem -sf_mem => H.
+have /allP := all_sf; move/(_ _ H)/(setZconj_size)/negP; apply.
+rewrite size_scale ?final_c_neq0 // size_prod_XsubC.
+apply/eqP; congr (_.+1); apply/eqP.
+rewrite -card_fsetE card_imfset; last by apply: val_inj.
+rewrite cardfs_eq0 /=; apply/eqP/fsetP => i /=.
+rewrite in_fset0 /fs_oa.
+by apply/negP => /imfsetP[j /=]; rewrite in_set0.
+Qed.
 
-  Search _ "cup".
+Lemma sf_perm_eq : perm_eq sf (enum_fset sf_part).
+Proof.
+apply: uniq_perm_eq; first last.
++ by move=> i; rewrite sf_mem.
++ by apply/enum_fset_uniq.
+apply/count_mem_uniq => x.
+case: (boolP (x \in sf)) => [x_in | /count_memPn -> //].
+have /perm_eqP -> := (perm_to_rem x_in).
+case: (boolP (x \in rem x sf)) => [x_inr |]; last first.
+  by move=> /count_memPn /= ->; rewrite eq_refl.
+have /allP := all_sf; move/(_ _ x_in)/(setZconj_size)/negP.
+rewrite size_scale ?final_c_neq0 // size_prod_XsubC eqSS.
+rewrite -card_fsetE card_imfset; last by apply: val_inj.
+rewrite cardfs_eq0 [X in X -> _]/=; move/negP/fset0Pn => [y y_in].
+have : (count_mem y) (enum {: dzeta_n0}) = 1%N.
+  by rewrite count_uniq_mem ?enum_uniq // mem_enum.
+have /perm_eqP <- := perm_eq_sf_proper.
+rewrite ssrcomplements.count_flatten /=.
+rewrite (eq_big_perm _ (perm_to_rem x_in)) /= big_cons /=.
+rewrite (eq_big_perm _ (perm_to_rem x_inr)) /= big_cons /=.
+set A := (count_mem y) _; rewrite addnA.
+set B := (\sum_(_ <- _) _)%N => H.
+have HA : (1%N <= A)%N.
+  by rewrite /A -has_count; apply/hasP => /=; exists y.
+have {HA} := (leq_add HA HA); rewrite addn1 => HA.
+by have := (leq_add HA (leq0n B)); rewrite addn0 H.
+Qed.
 
-Search _ cover.
-
-
-
-About seqroots_decomp_polyMin_fset.
-(* seqroots_decomp_polyMin_fset :
-forall (a : {fset complexR}) (c : complexR), a -> c != 0 ->
-c *: \prod_(x <- enum_fset a) ('X - x%:P) \is a polyOver Cint ->
-{s : seq ({fset fset_sub_eqType a} * complexR) |
-perm_eq (flatten [seq [seq y <- enum {: a} | y \in x.1] | x <- s]) (enum {: a}) &
-all (fun x : {fset fset_sub_eqType a} * complexR_eqType => 
-[fsetval i in x.1]%fset \is a setZconj x.2) s} *)
-
-
- 
-
+Lemma part_triv : trivIset part.
+Proof.
+About leq_card_cover.
+have := (leq_card_cover part).
+rewrite /cover -part_cover cardsT card_ord {1}part_eq /=.
+rewrite (eq_bigl (fun A => fs_oa A \in sf_part)); last first.
+  by move=> i; rewrite -part_sf_mem -part_eq.
+rewrite (eq_bigr (fun A => (\sum_(i <-enum_fset (fs_oa A)) 1)%N)); last first.
+  move=> i _; move eq_card: (#| i |) => ic.
+  elim: ic i eq_card => [i /eqP|].
+    rewrite cards_eq0 => /eqP ->.
+    rewrite big_seq_cond big1 //.
+    move=> x /andP[] H _.
+    have: (fs_oa set0) != fset0 by apply/fset0Pn; exists x.
+    suff: (fis_oa (fs_oa set0)) != set0 by rewrite fs_oaK eq_refl.
+    apply/set0Pn; exists (fi_oa x); rewrite /fis_oa.
+    by apply/imsetP; exists x.
+  move=> n ihn i card_i.
+  have : #|i| != 0%N by rewrite card_i.
+  rewrite cards_eq0; move/set0Pn => [x x_in].
+  rewrite -(setD1K x_in); set j := i :\ _.
+  rewrite (ihn j _); last first.
+    by have /eqP := (cardsD1 x i); rewrite card_i x_in add1n eqSS => /eqP ->.
+  rewrite -add1n (_ : addn _  _ = (\sum_(i <- (f_oa x) 
+                :: (enum_fset (fs_oa j))) 1%N)%N); last by rewrite big_cons.
+  have -> : ((fs_oa (x |: j)) = (f_oa x) |` (fs_oa j))%fset.
+    apply/fsetP => k; rewrite /fs_oa /= inE /=.
+    apply/imfsetP/orP => [[p /=]| [|]].
+        rewrite inE => /orP [|p_in ->].
+          by rewrite inE => /eqP -> ->; rewrite inE eq_refl; left.
+        by right; apply/imfsetP; exists p.
+      by rewrite inE => /eqP ->; exists x => //=; rewrite !inE eq_refl.
+    by move/imfsetP => [p /= p_in ->]; exists p; rewrite //= inE p_in orbT.
+  apply: eq_big_perm; apply: uniq_perm_eq; first last.
+  + by move=> k; rewrite !inE.
+  + by apply: enum_fset_uniq.
+  rewrite /= (enum_fset_uniq _) andbT.
+  apply/negP => H.
+  have : x \in j.
+    rewrite -[x]f_oaK -[j]fs_oaK /fis_oa.
+    by apply/imsetP; exists (f_oa x) => //.
+  by rewrite /j !inE eq_refl.
+rewrite -(big_map fs_oa (fun i => i \in sf_part) (fun i => (\sum_(j <- enum_fset i) 1%N)%N)).
+rewrite -big_filter; set s := filter _ _.
+have Hs : perm_eq s (enum_fset sf_part).
+  apply: uniq_perm_eq.
+  + rewrite /s filter_uniq // map_inj_uniq.
+      by rewrite /index_enum -enumT enum_uniq.
+    by apply: (can_inj fs_oaK).
+  + by apply: enum_fset_uniq.
+  move=> k; rewrite mem_filter.
+  apply/andP/idP => [[] // | k_in].
+  rewrite k_in; split; rewrite //.    
+  by apply/mapP; exists (fis_oa k); rewrite ?fis_oaK ?mem_index_enum //.
+rewrite (eq_big_perm _ Hs) -(eq_big_perm _ sf_perm_eq) /=.
+pose rr := [seq enum_fset i | i <- sf].
+have /= := (big_flatten addn_monoid rr xpredT (fun i => 1%N)); rewrite /rr.
+rewrite big_map => <-.
+rewrite (eq_big_perm _ perm_eq_sf_proper) /= sum1_size.
+rewrite (elimT eqP final_l_gt0).
+move/leqifP; rewrite eq_refl ltnn.
+by case: (boolP (trivIset part)).
+Qed.
 
 
 
@@ -1204,113 +1496,6 @@ apply/idP/imfsetP => [x_in | ].
     set u := (enum_fset (K:=complexR_choiceType) : fset_eqType _ -> seq_eqType _).
     apply: (@map_uniq _ _ u); apply/negPn/negP => /negP.
 
-Search _ uniq.
-
-cat_uniq:
-  forall (T : eqType) (s1 s2 : seq T), uniq (s1 ++ s2) = [&& uniq s1, ~~ has (mem s1) s2 & uniq s2]
-    have := (s2valP seq_conj); set s := s2val _; rewrite -/u map_comp.
-    have <- : map u s_part = map u [seq fst i | i <- s].
-      by rewrite -map_comp /s_part.
-    move/perm_eq_uniq; rewrite /dzeta_n0 filter_uniq ?undup_uniq //.
-
-Search _ subseq.
- 
-
-
-Search _ uniq.
-
-
-Search _ uniq map.
-Search _ rem.
-
-in_setD1: forall (T : finType) (x : T) (A : {set T}) (b : T), (x \in A :\ b) = (x != b) && (x \in A)
-Search _ rem.
-perm_to_rem: forall (T : eqType) (x : T) (s : seq_predType T), x \in s -> perm_eq s (x :: rem x s)
-mem_remF: forall (T : eqType) (s : seq T) (x : T), uniq s -> (x \in rem x s) = false
-Search _ "imfset".
-Search _ preim.
-
-rewrite part_pblock.
-
-image_pre:
-  forall (T : finType) (T' : eqType) (f : T -> T') (B : pred T'),
-  [seq f x | x in [preim f of B]] =i [predI B & codom f]
-
-
-Search _ preim_partition.
-Search _ equivalence_partition.
-Search _ "partition".
-Search _ pblock.
-About pblock_equivalence_partition.
-def_pblock:
-  forall (T : finType) (P : {set {set T}}) (B : {set T}) (x : T),
-  trivIset P -> B \in P -> x \in B -> pblock P x = B
-
-pblock_equivalence_partition :
-forall (T : finType) (R : rel T) (D : {set T}),
-{in D & &, equivalence_rel R} ->
-forall x y : T, x \in D -> y \in D -> (y \in pblock (equivalence_partition R D) x) = R x y
-
-Check (equivalence_partition_pblock part_partition).
-
-
-
- set g := sval _; move=> [in_g g_in].
-Search _ pblock.
-
-
-
-
-apply/idP/imfsetP => [| [k /= k_in eq_k]]; last first.
-  rewrite eq_k.
-have []:= (f_part_subproof k).
-Check (def_pblock part_triv f_in k_in).
-
-  
-Print pblock.
-Search _ pblock.
-
-(x \in pblock P x) = (x \in cover P)
-def_pblock:
-  forall (T : finType) (P : {set {set T}}) (B : {set T}) (x : T),
-  trivIset P -> B \in P -> x \in B -> pblock P x = B
-Print preim_partition.
-Print equivalence_partition.
-Search _ equivalence_partition.
-
-pblock_equivalence_partition:
-  forall (T : finType) (R : rel T) (D : {set T}),
-  {in D & &, equivalence_rel R} ->
-  {in D &, forall x y : T, (y \in pblock (equivalence_partition R D) x) = R x y}
-equivalence_partition (fun x y : T => f x == f y)
-equivalence_partition = 
-fun (T : finType) (R : rel T) (D : {set T}) =>
-let Px := fun x : T => [set y in D | R x y] in [set Px x | x in D]
-     : forall T : finType, rel T -> {set T} -> {set set_of_finType T}
-
-
-Definition final_c := \prod_(x <- s2val seq_conj) x.2.
-
-Lemma final_c_neq0 : final_c != 0.
-Proof.
-rewrite prodf_seq_neq0.
-apply/allP.
-have := (s2valP seq_conj); have /allP := (s2valP' seq_conj); set s := s2val _.
-move=> /= Hall Hperm [f x] /=.
-move/(Hall (f, x)) => /=; move/setZconj_neq0; rewrite -lead_coef_eq0.
-rewrite lead_coefZ (monicP _) ?mulr1 //.
-by apply/monic_prod_XsubC.
-Qed.
-
-Lemma final_c_Cint : final_c \is a Cint.
-Proof.
-rewrite /final_c.
-have := (s2valP seq_conj); have /allP := (s2valP' seq_conj); set s := s2val _.
-move=> /= Hall Hperm; rewrite big_seq_cond.
-apply/rpred_prod => [[f x] /andP[/= x_in] _].
-by move: (Hall (f, x) x_in) => /=; move/setZconj_over/set_roots_lead_coef.
-Qed.
-
 Lemma part_setZroots :
   {in part, forall P : {set 'I_final_l.+1},
   [fset (final_alpha i) | i in P]%fset \is a setZroots final_c}.
@@ -1323,19 +1508,6 @@ have : f != set0.
   have := part_partition; rewrite /partition => /and3P[_ _] /negP; apply.
   by rewrite -f_eq0 f_in.
 move/set0Pn => [i i_in]; pose g := f_part i.
-
-About fset0Pn.
-
-
-Search _ partition.
-Search _ preim_partition.
-Print preim_partition.
-
-equivalence_partition (fun x y : T => f x == f y)
-preim_partitionP:
-  forall (T : finType) (rT : eqType) (f : T -> rT) (D : {set T}), partition (preim_partition f D) D
-
-
 
 Definition final_b := finfun (sum_b \o final_alpha).
 
@@ -1391,7 +1563,7 @@ all (fun x : prod_eqType (fset_eqType complexR_choiceType) complexR_eqType => x.
 
 
 
-
+(*
 (* regroupement des coeffs en enlevant les doublons de gamma *)
 (* ils sont mis dans le même ordre *)
 Definition dzeta := undup (flatten [seq regr_gamma m | m <- 
