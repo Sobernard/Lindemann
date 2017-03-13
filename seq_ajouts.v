@@ -384,6 +384,34 @@ Lemma cover_rel_partitionP (P : {set {set T}}) :
   partition (cover_rel_partition P) (cover P).
 Proof. by apply/equivalence_partitionP => x y z _ _ _; apply/cover_eqrel. Qed.
 
+(* TODO : tout à fait faisable *)
+(*
+Lemma partition_inj (T' : finType) (P : {set {set T}}) (D : {set T}) (f : T -> T') :
+  partition P D -> injective f -> partition
+  ([set (fun (x : {set T}) => f @: x) y | y in P]) [set f x | x in D].
+Proof.
+rewrite /partition /trivIset => /and3P[/eqP Hcov /eqP Htriv Hset0 injf].
+apply/and3P; split.
++ rewrite cover_imset.
+  apply/eqP/setP => i; apply/bigcupP/imsetP => [[Q] | [x]].
+    move=> Q_in /imsetP[x x_in ->].
+
+move=> /imsetP[R R_in ->] /imsetP[x x_in ->]. 
+    by exists x => //; apply/bigcupP; exists R.
+  move=> /bigcupP[R R_in in_R ->].
+  exists (f @: R); apply/imsetP; first by exists R.
+  by exists x.
++ apply/eqP; rewrite !big_imset /=; first last.
+    move=> Q R Q_in R_in /setP Heq; apply/setP => x; move: (Heq (f x)).
+
+Search _ imset mem.cover_imset:
+  forall (T I : finType) (J : pred I) (F : I -> {set T}),
+  cover [set F x | x in J] = \bigcup_(i in J) F i
+card_imset:
+  forall (aT rT : finType) (f : aT -> rT) (D : pred aT), injective f -> #|[set f x | x in D]| = #|D|
+
+*)
+
 (*
 Definition pfun (aT : Type) (A : {set T}) (f : forall x : T, x \in A -> aT) 
   (g : T -> aT) (x : T) :=
@@ -1940,6 +1968,8 @@ Notation "p '.@[' v , A ']' " := (mpeval A v p)
 Section ClosedField_ajouts.
 
 Variable T : closedFieldType.
+
+(* TODO : tout passer aux fset *)
 
 Definition seqroots (P : {poly T}) := if P == 0 then [::] 
                                       else(sval(closed_field_poly_normal P)).
