@@ -258,21 +258,21 @@ Qed.
 
 (* produit sur toutes les fonctions injectives de l dans L *)
 Definition prod_Cexp_span_b :=
-  \prod_(f : 'I_L.+1 ^ l.+1 | injectiveb f) 
+  \prod_(f : 'I_L.+1 ^ l.+1) 
     Cexp_span (finfun (b \o f)) alpha.
 
 (* on retrouve le eq0 *)
 Lemma prod_Cexp_span_b_eq0 : prod_Cexp_span_b == 0.
 Proof.
 move: (svalP a_in_b); set f := sval a_in_b; move=> [] /injectiveP inj_f eq_ab.
-rewrite /prod_Cexp_span_b (bigD1 _ inj_f) mulf_eq0 /=; apply/orP; left.
+rewrite /prod_Cexp_span_b (bigD1 f) // mulf_eq0 /=; apply/orP; left.
 move/eqP: Lindemann_false => <-; apply/eqP; congr Cexp_span.
 by apply/ffunP => i; rewrite eq_ab ffunE.
 Qed.
 
 (* on le reconnait en tant que poly de poly pour faire du th sym *)
 Definition R : {mpoly {mpoly complexR[l.+1]}[L.+1]} :=
-  \prod_(f : 'I_L.+1 ^ l.+1 | injectiveb f) 
+  \prod_(f : 'I_L.+1 ^ l.+1) 
      \sum_(i : 'I_l.+1) 'X_i *: 'X_(f i).
 
 (* egalité valeurs/horner *)
@@ -306,19 +306,14 @@ apply/issymP => s; rewrite rmorph_prod /R /=.
 pose h := (fun (f : {ffun 'I_l.+1 -> 'I_L.+1}) => finfun (s \o f)).
 pose F := (fun (f : {ffun 'I_l.+1 -> 'I_L.+1}) =>
      (\sum_(i < l.+1) 'X_i *: 'X_(f i)) : {mpoly {mpoly complexR[l.+1]}[L.+1]}).            
-have H_eqF (f : {ffun 'I_l.+1 -> 'I_L.+1}) : injectiveb f -> 
+have H_eqF (f : {ffun 'I_l.+1 -> 'I_L.+1}) : true -> 
     msym s (\sum_(i < l.+1) 'X_i *: 'X_(f i)) = F (h f).
   move=> _; rewrite rmorph_sum /=; apply: eq_bigr => i _.
   rewrite msymZ msymX; congr ('X_i *: @mpolyX _ _ _).
   apply/mnmP => j; rewrite mnmE mnmE mnm1E /h ffunE /=.
   by rewrite -(inj_eq (@perm_inj _ s)) permKV.
-have H_eqP : forall f : {ffun 'I_l.+1 -> 'I_L.+1}, 
-       injectiveb f = injectiveb (h f). 
-  move=> f; rewrite /h /=; apply/injectiveP/injectiveP.
-    by move/(inj_comp (@perm_inj _ s)) => Hinj x y; rewrite !ffunE; move/Hinj.
-  by move=> H_inj x y eq_fxy; apply: H_inj; rewrite !ffunE /= eq_fxy.
-rewrite (eq_bigr (fun f => F(h f)) H_eqF) (eq_bigl _ _ (H_eqP)).
-rewrite [RHS](eq_bigr (fun f => F f)) // -(big_map h (fun f => injectiveb f) F).
+rewrite (eq_bigr (fun f => F(h f)) H_eqF). 
+rewrite -[LHS](big_map h xpredT F) /=.
 apply: eq_big_perm; set r := index_enum _.
 have r_uniq : uniq r by rewrite /r /index_enum -enumT enum_uniq.  
 apply: (uniq_perm_eq _ r_uniq).
@@ -364,18 +359,16 @@ apply/prodf_neq0 => f _; apply/negP => /eqP H.
 by move: (Xi_in_U f ord0); rewrite H mcoeff0 eq_refl. 
 Qed.
 
-Definition deg_U := (\sum_(f : 'I_L.+1 ^ l.+1 | injectiveb f) 1)%N.-1.
+Definition deg_U := (\sum_(f : 'I_L.+1 ^ l.+1) 1)%N.-1.
 
 (* TODO : enlever els leq_l_L : récupérable depuis a _in_b *)
 Lemma U_homog : U \is deg_U.+1.-homog.
 Proof.
 rewrite /U; apply: dhomogZ; rewrite /R /deg_U; set s := (index_enum _).
-have sum_lt0 : (0 < \sum_(f <- s | injectiveb f) 1)%N.
+have sum_lt0 : (0 < \sum_(f <- s) 1)%N.
   rewrite lt0n sum_nat_eq0 negb_forall; apply/existsP.
   exists (finfun (fun i : 'I_l.+1 => (widen_ord leq_l_L i))).
-  rewrite negb_imply /= andbT; apply/injectiveP => x y.
-  rewrite !ffunE => H_widen; apply: ord_inj.
-  by rewrite -[nat_of_ord _]/(nat_of_ord (widen_ord leq_l_L _)) H_widen.
+  by rewrite negb_imply /=.
 rewrite (prednK sum_lt0) rmorph_prod -!(big_filter s) /=.
 set se := [seq _ <- _ | _].
 rewrite -(big_map (fun i => 1%N) xpredT (fun i => i)) /=.
@@ -391,12 +384,10 @@ Lemma U_in_all i : U@_(U_( i) *+ deg_U.+1)%MM != 0.
 Proof.
 rewrite /U mcoeffZ mulf_eq0 negb_or (expf_neq0 _ c_neq0) andTb.
 rewrite /R /deg_U; set s := (index_enum _).
-have sum_lt0 : (0 < \sum_(f <- s | injectiveb f) 1)%N.
+have sum_lt0 : (0 < \sum_(f <- s) 1)%N.
   rewrite lt0n sum_nat_eq0 negb_forall; apply/existsP.
   exists (finfun (fun i : 'I_l.+1 => (widen_ord leq_l_L i))).
-  rewrite negb_imply /= andbT; apply/injectiveP => x y.
-  rewrite !ffunE => H_widen; apply: ord_inj.
-  by rewrite -[nat_of_ord _]/(nat_of_ord (widen_ord leq_l_L _)) H_widen.
+  by rewrite negb_imply /=.
 rewrite (prednK sum_lt0) rmorph_prod; move: sum_lt0; rewrite -!(big_filter s).
 move : [seq _ <- _ | _] => se sum_lt0 /=.
 case/lastP: se sum_lt0 => [ | r x _]; first by rewrite big_nil.
