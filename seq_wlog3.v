@@ -29,12 +29,6 @@ Local Notation setZroots := ((set_roots Cint) :
 
 
 
-
-
-
-
-
-
 Section Lindemann_last.
 
 
@@ -830,8 +824,6 @@ Ltac Scont := try repeat
   apply/contM ||
   apply/contC.
 
-(* TODO : move to ajouts ? not sure ... *)
-
 
 (* **** from {poly {mpoly _}} to {poly _} **** *) 
 Definition MPtoP P : {poly complexR} := 
@@ -1010,7 +1002,6 @@ Lemma maj_Ie i j :
   (Mal *+ 2) ^+ p.-1 
   * RInt (fun x => norm ((T i)^+ p).[x *: alpha j]) 0 1.
 Proof.
-(* TODO : maybe this lemma should be moved close to normM. *)
 have norm_exp : forall y n, norm (y ^+n : complexR) = (norm y)^+n.
   move=> y; elim => [|m Ihm].
     rewrite !expr0 /=.
@@ -1082,7 +1073,6 @@ Lemma maj_I i j :
   norm (I i j) <= Mal * (Me * (Mm * (Mal *+ 2 * Mm)^+p.-1)) .
 Proof.
 apply/(ler_trans (maj_Ia i j)); rewrite maj_Ib.
-(* TODO : this is probably general enough to be in the main library. *) 
 have hnorm : forall (V : NormedModule R_AbsRing) (x : V), `|norm x| = norm x.
   by move=> V x; apply/normr_idP/RleP/norm_ge_0.
 set x1 := _ * (_ * _ ^+ _).
@@ -1247,8 +1237,3 @@ by move/(ltr_le_trans (K_lt alpha a c_neq0 c_Cint)); rewrite ltrr.
 Qed.
 
 (* Print Assumptions Lindemann_last. *)
-
-(* TODO : constant_on ou card[set a i ] <= 1 *)
-
-
-

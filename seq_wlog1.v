@@ -30,56 +30,16 @@ Local Notation setZroots := ((set_roots Cint) :
 
 Section Wlog1.
 
-(* Hypothèses de base : changer le pre_l en l.+1 *)
-Variable pre_l : nat.
-Hypothesis pre_l_gt0 : (0%N < pre_l)%N.
-Variable pre_alpha : complexR ^ pre_l.
-Hypothesis pre_alpha_inj : injective pre_alpha.
-Hypothesis pre_alpha_algebraic : forall i : 'I_pre_l, pre_alpha i is_algebraic.
-Variable pre_a : complexR ^ pre_l.
-Hypothesis pre_a_neq0 : forall i : 'I_pre_l, pre_a i != 0.
-Hypothesis pre_a_algebraic : forall i : 'I_pre_l, pre_a i is_algebraic.
-Hypothesis pre_Lindemann_false : Cexp_span pre_a pre_alpha == 0.
+Variable l : nat.
+Variable alpha : complexR ^ l.+1.
+Hypothesis alpha_inj : injective alpha.
+Hypothesis alpha_algebraic : forall i : 'I_l.+1, alpha i is_algebraic.
+Variable a : complexR ^ l.+1.
+Hypothesis a_neq0 : forall i : 'I_l.+1, a i != 0.
+Hypothesis a_algebraic : forall i : 'I_l.+1, a i is_algebraic.
+Hypothesis Lindemann_false : Cexp_span a alpha == 0.
 
-(* changement avec l.+1 *)
-Definition l := pre_l.-1.
-
-
-Definition alpha := 
-  finfun (tnth [tuple pre_alpha (cast_ord (prednK pre_l_gt0) i) | i < l.+1]).
-
-Lemma alpha_inj : injective alpha.
-Proof.
-move=> i j; rewrite !ffunE !tnth_map.
-by move/pre_alpha_inj /cast_ord_inj; rewrite !tnth_ord_tuple.
-Qed.
-
-Lemma alpha_algebraic : forall i : 'I_l.+1, alpha i is_algebraic.
-Proof. by move=> i; rewrite ffunE tnth_map; apply: pre_alpha_algebraic. Qed.
-
-Definition a := 
-  finfun (tnth [tuple pre_a (cast_ord (prednK pre_l_gt0) i) | i < l.+1]).
-
-Lemma a_neq0 : forall i : 'I_l.+1, a i != 0.
-Proof. by move=> i; rewrite ffunE tnth_map; apply: pre_a_neq0. Qed.
-
-Lemma a_algebraic : forall i : 'I_l.+1, a i is_algebraic.
-Proof. by move=> i; rewrite ffunE tnth_map; apply: pre_a_algebraic. Qed.
-
-Lemma Lindemann_false : Cexp_span a alpha == 0.
-Proof. 
-apply/eqP; move/eqP : pre_Lindemann_false => <-; rewrite /Cexp_span.
-rewrite (big_ord_widen_leq pre_l) ?(prednK pre_l_gt0) //.
-apply: eq_big => i; first by rewrite /= -ltnS (prednK pre_l_gt0) ltn_ord.
-move=> _; rewrite !ffunE !tnth_map. 
-congr (pre_a _ * Cexp (pre_alpha _)); rewrite tnth_ord_tuple /=.
-  by apply: ord_inj => /=; rewrite inordK ?(prednK pre_l_gt0) //.
-by apply: ord_inj => /=; rewrite inordK ?(prednK pre_l_gt0) //.
-Qed.
-
-(* Polynômes associés *)
-
-(* polynôme de chaque a_i *)
+(* polynomial for each a i *)
 Definition poly_a i := (polyMin (a_algebraic i)).
 
 Lemma poly_a_neq0 i : poly_a i != 0.
@@ -98,13 +58,6 @@ Proof.
 rewrite lt0n; apply/negP; move/eqP/size0nil => eq_nil.
 by move: (a_in_sroot_a i); rewrite eq_nil in_nil.
 Qed.
-
-
-(* produit de tous les polynomes *)
-(*
-Definition prod_poly_a := \prod_(i : 'I_l.+1) (poly_a i).
-Definition poly_b := (map_poly ZtoC prod_poly_a).
-*)
 
 Definition poly_b := \prod_(i : 'I_l.+1) (poly_a i).
 
@@ -126,9 +79,7 @@ Proof. by apply/polyOverP; apply: poly_b_Cint. Qed.
 Lemma c_neq0 : c != 0.
 Proof. by rewrite lead_coef_eq0; apply: poly_b_neq0. Qed.
 
-(* on récupère l'ensemble des racines 
-en séquence pour l'instant, on doit attendre pour la vraie notation 
-et qu'on transforme en L.-tuple : b *)
+(* roots of poly_b *)
 Definition sroot_b := seqroots poly_b.
 
 Lemma perm_eq_b : 
@@ -197,9 +148,6 @@ rewrite (big_ffun _ _ (tnth (Tuple size_b)) _ _ (fun i => 'X - i%:P)).
 by rewrite -[LHS](big_tuple _ _ (Tuple size_b) xpredT (fun i => 'X - i%:P)) /=.
 Qed.
 
-
-(* lien entre les a et b *)
-(* TODO : injective ou injectiveb ?!? *)
 Lemma a_in_b :
   {f : 'I_L.+1 ^ l.+1 | injective f & a =1 (b \o f)}.
 Proof.
@@ -220,13 +168,13 @@ move: perm_eq_b; rewrite -[X in perm_eq _ X]/(tval (Tuple size_b)).
 move/tuple_perm_eqP /sig_eqW => [] s.
 (* exists *)
 exists (finfun (fun i => s (Ordinal (ord_ind_a i)))) => [| i /=]; first last.
-  (* égalité *)
+  (* equality *)
   have -> : a i = nth 0 (flatten troot_a) (Ordinal (ord_ind_a i)).
     rewrite [X in nth _ _ X]/= /ind_a (@nth_flatten _ _ [::]) ?size_tuple //.
       by apply: a_in_sroot_a.
     by rewrite -tnth_nth tnth_map tnth_ord_tuple.
   by rewrite ffunE p -tnth_nth tnth_map tnth_ord_tuple ffunE.
-(* injective => monotone inégalité stricte : manque mono_inj pour des nat ? *)
+(* injective *)
 move=> i j; rewrite !ffunE; move/perm_inj => eq_ord_ind; apply/eqP.
 have {eq_ord_ind} eq_ind : ind_a i = ind_a j.
   by rewrite (ordnat (ord_ind_a i)) (ordnat (ord_ind_a j)) eq_ord_ind.
@@ -256,12 +204,11 @@ by apply: (leq_trans le_w).
 Qed.
 
 
-(* produit sur toutes les fonctions injectives de l dans L *)
+(* product *)
 Definition prod_Cexp_span_b :=
   \prod_(f : 'I_L.+1 ^ l.+1) 
     Cexp_span (finfun (b \o f)) alpha.
 
-(* on retrouve le eq0 *)
 Lemma prod_Cexp_span_b_eq0 : prod_Cexp_span_b == 0.
 Proof.
 move: (svalP a_in_b); set f := sval a_in_b; move=> [] /injectiveP inj_f eq_ab.
@@ -270,13 +217,10 @@ move/eqP: Lindemann_false => <-; apply/eqP; congr Cexp_span.
 by apply/ffunP => i; rewrite eq_ab ffunE.
 Qed.
 
-(* on le reconnait en tant que poly de poly pour faire du th sym *)
 Definition R : {mpoly {mpoly complexR[l.+1]}[L.+1]} :=
   \prod_(f : 'I_L.+1 ^ l.+1) 
      \sum_(i : 'I_l.+1) 'X_i *: 'X_(f i).
 
-(* egalité valeurs/horner *)
-(* TODO : nom et = / == *)
 Lemma R_Cexp_span_eq0 :
   (R.@[finfun ((@mpolyC l.+1 complexR_ringType) \o b)])
     .@[finfun (Cexp \o alpha)] == 0.
@@ -288,7 +232,6 @@ apply: eq_bigr => i _; rewrite mulrC mevalZ mevalM !mevalX ![in LHS]ffunE.
 by rewrite mevalC [X in _ = (_ * X)]ffunE.
 Qed.
 
-(* coefficients entiers pour th sym *)
 Lemma R_overCint : 
   R \is a (mpolyOver L.+1 (mpolyOver l.+1 Cint)).
 Proof.
@@ -297,12 +240,10 @@ apply: rpred_sum => i _ /=; rewrite -mul_mpolyC.
 by apply: rpredM => /=; rewrite ?mpolyOverC /= mpolyOverX.
 Qed.
 
-(* le poly est sym *)
 Lemma R_sym :
   R \is symmetric.
 Proof.
 apply/issymP => s; rewrite rmorph_prod /R /=.
-(* préparation pour un big_map *)
 pose h := (fun (f : {ffun 'I_l.+1 -> 'I_L.+1}) => finfun (s \o f)).
 pose F := (fun (f : {ffun 'I_l.+1 -> 'I_L.+1}) =>
      (\sum_(i < l.+1) 'X_i *: 'X_(f i)) : {mpoly {mpoly complexR[l.+1]}[L.+1]}).            
@@ -325,7 +266,7 @@ by apply/ffunP => i; rewrite ffunE /= ffunE /= permKV.
 Qed.
 
 
-(* on perd un mpoly ! *)
+(* we loose a mpoly ! *)
 Definition U := 
    (c ^+ (msize R)) *: R.@[finfun ((@mpolyC l.+1 complexR_ringType) \o b)].
 
@@ -361,7 +302,6 @@ Qed.
 
 Definition deg_U := (\sum_(f : 'I_L.+1 ^ l.+1) 1)%N.-1.
 
-(* TODO : enlever els leq_l_L : récupérable depuis a _in_b *)
 Lemma U_homog : U \is deg_U.+1.-homog.
 Proof.
 rewrite /U; apply: dhomogZ; rewrite /R /deg_U; set s := (index_enum _).
@@ -412,17 +352,13 @@ Qed.
 
 
 
-(* On va extraire les infos *)
-
-(* Récupérer les sommes d'exponentielles *)
+(* Sum of exponentials *)
 Definition mnm_alpha := 
    (fun (m : 'X_{1..l.+1}) => \sum_(i < l.+1) ((alpha i) *+ m i)). 
    
 Definition sum_alpha := 
    map mnm_alpha (msupp U).
 
-
-(* Faire les sommes de coeff pour els exponentielles identiques *)
 Lemma undupA : size (undup sum_alpha) == (size (undup sum_alpha)).-1.+1.
 Proof.
 rewrite prednK //.
@@ -461,7 +397,6 @@ rewrite (@eq_filter _ _ (fun x => (mnm_alpha m == x))); first last.
 by move=> ->; rewrite big_seq1.
 Qed.
 
-(* faire une finfun pour pouvoir composer ! *)
 Definition reindex_seq :=   
   filter (fun i => undup_b i != 0) (enum 'I_(size (undup sum_alpha)).-1.+1). 
 
@@ -514,7 +449,7 @@ have : (forall i : 'I_deg_U.+1, true ->
 by move/letcif_sum; rewrite Hsum; move/letcif_refl/forallP/(_ j)/implyP; apply.
 Qed.
 
-(* Eliminer les coeffs nuls *)
+(* Eliminating null coefficients *)
 Definition final_alpha := finfun (undup_alpha \o (tnth (Tuple tuple_RS))).
 
 Definition final_b := finfun (undup_b \o (tnth (Tuple tuple_RS))).
@@ -577,7 +512,6 @@ apply/eqP; rewrite /reindex_seq big_filter big_mkcond /= /index_enum -enumT /=.
 by apply: eq_bigr => i _; case: ifP => // /negbFE /eqP ->; rewrite mul0r.
 Qed.
 
-(* Theoreme wlog1 *)
 Lemma wlog1 : 
   exists (f_l : nat) (f_alpha : complexR ^ f_l.+1) (f_a : complexR ^ f_l.+1), 
   injective f_alpha /\ 
@@ -607,9 +541,13 @@ Theorem wlog1_Lindemann :
   (forall i : 'I_l, a i != 0) -> (forall i : 'I_l, a i is_algebraic) ->
   (Cexp_span a alpha != 0).
 Proof. 
-move=> ih l alpha a l_gt0 alpha_inj alpha_alg a_neq0 a_alg; apply/negP => Hspan.
-move: (wlog1 l_gt0 alpha_inj alpha_alg a_neq0 a_alg Hspan)=> [fl [falpha [fa]]].
+move=> ih l alpha a l_gt0.
+have Hl : l = l.-1.+1 by rewrite prednK.
+move: alpha a {l_gt0}; rewrite Hl.
+move=> alpha a alpha_inj alpha_alg a_neq0 a_alg; apply/negP => Hspan.
+move: (wlog1 alpha_inj alpha_alg a_neq0 a_alg Hspan)=> [fl [falpha [fa]]].
 move=> [] falpha_inj [] falpha_alg [] fa_neq0 [] fa_Cint Hspan_eq0.
 move: (ih fl falpha fa falpha_inj falpha_alg fa_neq0 fa_Cint).
 by rewrite Hspan_eq0.
 Qed.
+
