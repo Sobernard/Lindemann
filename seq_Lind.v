@@ -24,9 +24,6 @@ Local Notation Cint := Cstruct.Cint.
 Notation "x 'is_algebraic'" := (algebraicOver QtoC x)
   (at level 55).
 
-Local Notation setZroots := ((set_roots Cint) : 
-    complexR -> qualifier 1 {fset complexR}).
-
 Definition lin_indep_over (P : pred_class) {n : nat} (x : complexR ^ n) :=
   forall (lambda : complexR ^ n), lambda \in ffun_on P ->
     lambda != 0 -> \sum_(i < n) (lambda i * x i) != 0.
@@ -35,6 +32,8 @@ Definition alg_indep_over (P : pred_class) {n : nat} (x : complexR ^ n) :=
   forall (p : {mpoly complexR[n]}), p \is a mpolyOver _ P ->
     p != 0 -> p.@[x] != 0.
 
+Local Notation setZroots := ((set_roots Cint) : 
+    complexR -> qualifier 1 {fset complexR}).
 
 Theorem LindemannBaker : forall (l : nat) (alpha : complexR ^ l) (a : complexR ^ l),
   (0%N < l)%N -> injective alpha -> (forall i : 'I_l, alpha i is_algebraic) ->
@@ -45,8 +44,6 @@ apply: wlog1_Lindemann.
 apply: wlog2_Lindemann.
 by apply: Lindemann_last.
 Qed.
-
-(* Print Assumptions LindemannBaker. *)
 
 Theorem LindemannWeierstrass n (alpha : complexR ^ n) :
   (n > 0)%N -> (forall i : 'I_n, alpha i is_algebraic) ->
@@ -94,43 +91,94 @@ apply: algebraic_opp; rewrite Heq integral_algebraic.
 by apply: integral_nat.
 Qed.
 
-Theorem e_trans_by_LW :
+Theorem e_trans_by_LB :
   ~ (RtoC (Rtrigo_def.exp 1) is_algebraic).
 Proof.
 have -> : RtoC (Rtrigo_def.exp 1) = Cexp 1 by rewrite Cexp_exp ?real1.
 move=> e_alg.
 pose p := polyMin e_alg.
-pose t := filter (fun (x : 'I_(size p)) => p`_x != 0) (index_enum (ordinal_finType (size p))).
+pose r := index_enum (ordinal_finType (size p)).
+pose t := filter (fun (x : 'I_(size p)) => p`_x != 0) r.
 pose n := size t.
-pose alpha := (finfun (fun (i : 'I_n) => (i%:R : complexR))).
-pose a := (finfun (fun (i : 'I_n) => p`_i)).
+pose alpha := (finfun (fun (i : 'I_n) => ((tnth (in_tuple t) i)%:R : complexR))).
+pose a := (finfun (fun (i : 'I_n) => p`_(tnth (in_tuple t) i))).
 have /eqP : Cexp_span a alpha = 0.
   move/rootP: (polyMin_root e_alg) => <-; rewrite -/p horner_coef -/n.
-  rewrite /Cexp_span /alpha /a -/p /n /t.
+  rewrite /Cexp_span /alpha /a -/p /n -/r.
+  pose f := (fun (i : 'I_(size p)) => p`_i * Cexp 1 ^+ i).
+  rewrite [LHS](eq_bigr (fun i => (f \o (tnth (in_tuple t))) i)); first last.
+    by move=> i _; rewrite /f !ffunE /= CexpRX.
+  rewrite -(big_tnth _ _ _ xpredT) /f big_filter big_mkcond /=.
+  by apply: eq_bigr => i _; case: ifP => [// | /negbFE/eqP ->]; rewrite mul0r.
+have ord_p : ((size p).-1 < size p)%N.
+  by rewrite -(polySpred (polyMin_neq0 e_alg)).
+apply/negP/Lindemann.
++ have := (polyMin_neq0 e_alg); rewrite -/p -lead_coef_eq0 lead_coefE => H.
+  rewrite /n size_filter -has_count.
+  by apply/hasP; exists (Ordinal ord_p) => //=; rewrite mem_index_enum.
++ move=> i j /eqP; rewrite /alpha !ffunE eqr_nat. 
+  rewrite !(tnth_nth (Ordinal ord_p)) /= => /eqP /ord_inj /eqP.
+  rewrite nth_uniq // => [/eqP /ord_inj // | ].
+  by apply: filter_uniq; rewrite /r /index_enum -enumT enum_uniq.
++ move=> i; rewrite /alpha ffunE -ratr_nat.
+  by apply: algebraic_id.
++ move=> i; rewrite /a ffunE.
+  by have := (mem_tnth i (in_tuple t)); rewrite mem_filter => /andP[].
+move=> i; rewrite /a ffunE.
+have /polyOverP/(_ (tnth (in_tuple t) i)) := (polyMin_over e_alg); rewrite -/p.
+move/CintP => [m ->]; rewrite -ratr_int.
+by apply: algebraic_id.
+Qed.
+
+Theorem e_trans_by_LW :
+  ~ (RtoC (Rtrigo_def.exp 1) is_algebraic).
+Proof.
+have -> : RtoC (Rtrigo_def.exp 1) = Cexp 1 by rewrite Cexp_exp ?real1.
+move=> e_alg.
+pose n := 1%N.
+pose alpha := finfun (fun (i : 'I_n) => 1 : complexR).
+have n_gt0 : (n > 0)%N by [].
+have Halg : (forall i : 'I_n, alpha i is_algebraic).
+  by move=> i; rewrite /alpha ffunE; apply: algebraic1.
+have Hlin : lin_indep_over Cint alpha.
+  rewrite /lin_indep_over /n => l /ffun_onP _ l_neq0.
+  rewrite big_ord_recl /= big_ord0 addr0 /alpha ffunE mulr1.
+  move: l_neq0; apply: contra => /eqP l0_eq0.
+  apply/eqP/ffunP => i; rewrite zmodp.ord1 l0_eq0.
+  by rewrite [in RHS]/GRing.zero /= /ffun_zero ffunE.
+have := (LindemannWeierstrass n_gt0 Halg Hlin); rewrite /alg_indep_over /n.
+pose p := polyMin e_alg.
+pose F := (fun (i : nat) => p`_i *: 'X_[U_(@ord0 0) *+ i]).
+pose q := \sum_(i < size p) F i : {mpoly complexR[1]}.
+have q_over : q \is a mpolyOver 1 Cint.
+  apply/mpolyOverP => m; rewrite /q raddf_sum /= rpred_sum // => i _.
+  rewrite mcoeffZ mcoeffX rpredM //; last by apply/Cint_Cnat/Cnat_nat.
+  by have /polyOverP/(_ i) := (polyMin_over e_alg).
+have q_neq0 : q != 0.
+  suff H_in : (U_(@ord0 0) *+ (size p).-1)%MM \in (msupp q).
+    by apply/negP => /eqP Hq; move: H_in; rewrite Hq msupp0 inE.
+  rewrite /q -(big_mkord xpredT) (polySpred (polyMin_neq0 e_alg)).
+  rewrite big_nat_recr //= (perm_eq_mem (msuppD _)) ?mem_cat.
+    apply/orP; right; rewrite /F msuppMCX; first by rewrite inE.
+    by rewrite -lead_coefE lead_coef_eq0 polyMin_neq0.
+  move=> x /=; rewrite {2}/F msuppMCX; last first.
+    by rewrite -lead_coefE lead_coef_eq0 polyMin_neq0.
+  rewrite inE; case: eqP => [-> | ]; last by rewrite andbF.
+  rewrite andbT; apply/negP; move/msupp_sum_le/flatten_mapP => [i].
+  rewrite filter_xpredT mem_index_iota => /andP[i_gt0 i_lt].
+  move/msuppZ_le; rewrite msuppX inE.
+  move/eqP/mnmP/(_ (@ord0 0)); rewrite !mulmnE !mnmE /= !muln1 => H.
+  by move: i_lt; rewrite H ltnn.
+move/(_ q q_over q_neq0); apply/negP/negPn/eqP; rewrite /q raddf_sum /=.
+have /rootP := (polyMin_root e_alg) => {2}<-; rewrite -/p horner_coef.
+apply: eq_bigr => i _; rewrite /F mevalZ /meval mmapX /mmap1 /=.
+rewrite big_ord_recl /= big_ord0 mulr1 mulmnE mnmE /= muln1 ffunE /=.
+by rewrite /alpha ffunE.
+Qed.
 
 
-(*  big_index_uniq; first last. *)
-(*     by rewrite filter_uniq // /index_enum -enumT enum_uniq. *)
-(*   rewrite big_filter big_mkcond /=. *)
-(*   apply/eq_bigr => i _. *)
-(*   case: ifP => [pi_neq0 /= | pi_eq0]. *)
 
-(* About insub. *)
-(* Print insub. *)
-(* Search _ insub. *)
-
-(*   by apply/eq_bigr => i _; rewrite !ffunE CexpRX. *)
-(* apply/negP/Lindemann. *)
-(* + by rewrite /n lt0n size_poly_eq0 polyMin_neq0. *)
-(* + by move=> i j /eqP; rewrite /alpha !ffunE eqr_nat => /eqP /ord_inj. *)
-(* + move=> i; rewrite /alpha ffunE -ratr_nat. *)
-(*   by apply: algebraic_id. *)
-(* + move=> i. *)
-(* Search _ algebraicOver. *)
-
-Admitted.
-
-Theorem Pi_trans_by_LW : ~ (RtoC Rtrigo1.PI is_algebraic).
+Theorem Pi_trans_by_LB : ~ (RtoC Rtrigo1.PI is_algebraic).
 Proof.
 suff : ~ ('i * RtoC Rtrigo1.PI) is_algebraic.
   move=> iPi_nalg Pi_alg; apply: iPi_nalg.
@@ -171,4 +219,49 @@ apply/negP/Lindemann => //.
 move=> i; have /orP[/eqP -> | /eqP ->] := (Hord2 i); rewrite ffunE /=.
   by apply: algebraic1.
 by apply: algebraic1. 
+Qed.
+
+Theorem Pi_trans_by_LW : ~ (RtoC Rtrigo1.PI is_algebraic).
+Proof.
+suff : ~ ('i * RtoC Rtrigo1.PI) is_algebraic.
+  move=> iPi_nalg Pi_alg; apply: iPi_nalg.
+  apply: algebraic_mul => //; exists ('X^2 + 1). 
+    by rewrite -size_poly_eq0 size_addl size_polyXn ?size_poly1.
+  apply/rootP; rewrite rmorphD  hornerD rmorphX /= map_polyX map_polyC hornerC.
+  by rewrite hornerXn /= rmorph1 sqrCi addNr.
+move=> ipi_alg.
+pose n := 1%N.
+pose alpha := finfun (fun (i : 'I_n) => 'i * RtoC Rtrigo1.PI).
+have n_gt0 : (n > 0)%N by [].
+have Halg : (forall i : 'I_n, alpha i is_algebraic).
+  by move=> i; rewrite /alpha ffunE; apply: ipi_alg.
+have Hlin : lin_indep_over Cint alpha.
+  rewrite /lin_indep_over /n => l /ffun_onP _ l_neq0.
+  rewrite big_ord_recl /= big_ord0 addr0 /alpha ffunE.
+  apply/mulf_neq0.
+    move: l_neq0; apply: contra => /eqP l0_eq0.
+    apply/eqP/ffunP => i; rewrite zmodp.ord1 l0_eq0.
+    by rewrite [in RHS]/GRing.zero /= /ffun_zero ffunE.
+  apply/mulf_neq0; first by apply/neq0Ci.
+  rewrite -[0]/(RtoC 0) -RtoCE.
+  by apply/negP; move/eqP; apply: Rtrigo1.PI_neq0.
+have := (LindemannWeierstrass n_gt0 Halg Hlin); rewrite /alg_indep_over /n.
+pose p := 'X_(@ord0 0) + 1 : {mpoly complexR[1]}.
+have p_over : p \is a mpolyOver 1 Cint.
+  by rewrite /p; apply/rpredD/rpred1/mpolyOverX.
+have p_neq0 : p != 0.
+  suff H_in : 0%MM \in msupp p.
+    by apply/negP => /eqP Hp; move: H_in; rewrite Hp msupp0 inE.
+  rewrite /p (perm_eq_mem (msuppD _)).
+    by rewrite msupp1 mem_cat inE eq_refl orbT.
+  move=> m /=; rewrite msuppX msupp1 !inE.
+  by case: eqP => [ -> | //]; rewrite andTb mnm1_eq0.
+move/(_ p p_over p_neq0); apply/negP/negPn/eqP; rewrite /p mevalD mevalX meval1.
+rewrite ffunE /= /alpha ffunE /Cexp.
+rewrite ['i * _]mulrC complex.ReiNIm complex.ImiRe. 
+rewrite complex.ger0_Im; last first.
+  rewrite complex.ler0c.
+  by apply/ltrW/RltP/RIneq.Rgt_lt/Rtrigo1.PI_RGT_0.
+rewrite oppr0 Rtrigo_def.exp_0 /= Rtrigo1.cos_PI Rtrigo1.sin_PI.
+by rewrite mulr0 addr0 mul1r -RtoCE addNr.
 Qed.
