@@ -265,7 +265,7 @@ have : Cexp_span a alpha == 0.
   by rewrite !ffunE /= !mul1r Cexp0 eiPI_eqm1 addNr.
 have Hord2 (j : 'I_2) : (j == ord0) || (j == Ordinal (ltnSn 1)).
   case: j; case => [//= | ]; case => //=.
-apply/negP/Lindemann => //.
+apply/negP/LindemannBaker => //.
 + move=> i j; apply: contra_eq; move/negbTE; rewrite /alpha !ffunE eq_sym.
   have PI_neq0 : RtoC Rtrigo1.PI * 'i != 0.
     apply/mulf_neq0/neq0Ci/negP; rewrite -RtoCE.
