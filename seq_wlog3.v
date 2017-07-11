@@ -1,5 +1,5 @@
 Require Import Reals.
-From coquelicot
+From Coquelicot
 Require Import Hierarchy RInt.
 From mathcomp Require Import all_ssreflect.
 From mathcomp

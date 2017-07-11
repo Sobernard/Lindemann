@@ -35,6 +35,13 @@ Definition alg_indep_over (P : pred_class) {n : nat} (x : complexR ^ n) :=
 Local Notation setZroots := ((set_roots Cint) : 
     complexR -> qualifier 1 {fset complexR}).
 
+
+
+
+(******************************************************************************)
+(*                          Lindemann's theorems                              *)
+(******************************************************************************)
+
 Theorem LindemannBaker : forall (l : nat) (alpha : complexR ^ l) (a : complexR ^ l),
   (0%N < l)%N -> injective alpha -> (forall i : 'I_l, alpha i is_algebraic) ->
   (forall i : 'I_l, a i != 0) -> (forall i : 'I_l, a i is_algebraic) ->
@@ -91,6 +98,13 @@ apply: algebraic_opp; rewrite Heq integral_algebraic.
 by apply: integral_nat.
 Qed.
 
+(* Print Assumptions LindemannWeierstrass *)
+
+
+
+
+
+
 Lemma ffun1_lin_indep_over (P : pred_class) (x : complexR) :
   x != 0 -> lin_indep_over P (finfun (fun (i : 'I_1) => x)).
 Proof.
@@ -134,18 +148,34 @@ apply: eq_bigr => i _; rewrite /F mevalZ /meval mmapX /mmap1 /=.
 by rewrite big_ord_recl /= big_ord0 mulr1 mulmnE mnmE /= muln1 ffunE /=.
 Qed.
 
+
+
+
+(******************************************************************************)
+(*                          Hermite-Lindemann theorem                         *)
+(******************************************************************************)
+
 Theorem HermiteLindemann (x : complexR) :
   x != 0 -> x is_algebraic -> ~ ((Cexp x) is_algebraic).
 Proof.
 move=> x_neq0 x_alg; move/ffun1_alg_indep_over; apply.
 have -> : (finfun (fun _ : 'I_1 => Cexp x)) = 
           (finfun (Cexp \o (finfun (fun _ : 'I_1 => x)))).
-  by apply/ffunP => i; rewrite /alpha !ffunE /= ffunE.
+  by apply/ffunP => i; rewrite !ffunE /= ffunE.
 apply/LindemannWeierstrass.
 + by [].
 + by move=> i; rewrite ffunE.
 by apply/ffun1_lin_indep_over/x_neq0.
 Qed.
+
+(* Print Assumptions HermiteLindemann *)
+
+
+
+
+(******************************************************************************)
+(*                          Transcendence of e                                *)
+(******************************************************************************)
 
 Theorem e_trans_by_LB :
   ~ (RtoC (Rtrigo_def.exp 1) is_algebraic).
@@ -166,7 +196,7 @@ have /eqP : Cexp_span a alpha = 0.
   by apply: eq_bigr => i _; case: ifP => [// | /negbFE/eqP ->]; rewrite mul0r.
 have ord_p : ((size p).-1 < size p)%N.
   by rewrite -(polySpred (polyMin_neq0 e_alg)).
-apply/negP/Lindemann.
+apply/negP/LindemannBaker.
 + have := (polyMin_neq0 e_alg); rewrite -/p -lead_coef_eq0 lead_coefE => H.
   rewrite size_filter -has_count.
   by apply/hasP; exists (Ordinal ord_p) => //=; rewrite mem_index_enum.
@@ -187,10 +217,10 @@ Theorem e_trans_by_LW :
   ~ (RtoC (Rtrigo_def.exp 1) is_algebraic).
 Proof.
 have -> : RtoC (Rtrigo_def.exp 1) = Cexp 1 by rewrite Cexp_exp ?real1.
-apply/ffun1_alg_indep_over.
+move/ffun1_alg_indep_over; apply.
 have -> : (finfun (fun _ : 'I_1 => Cexp 1)) = 
           (finfun (Cexp \o (finfun (fun _ : 'I_1 => 1)))).
-  by apply/ffunP => i; rewrite /alpha !ffunE /= ffunE.
+  by apply/ffunP => i; rewrite !ffunE /= ffunE.
 apply/LindemannWeierstrass.
 + by [].
 + by move=> i; rewrite ffunE; apply/algebraic1.
@@ -203,6 +233,13 @@ Proof.
 have -> : RtoC (Rtrigo_def.exp 1) = Cexp 1 by rewrite Cexp_exp ?real1.
 by apply/HermiteLindemann/algebraic1/oner_neq0.
 Qed.
+
+
+
+
+(******************************************************************************)
+(*                          Transcendence of pi                               *)
+(******************************************************************************)
 
 Lemma eiPI_eqm1 : Cexp (RtoC Rtrigo1.PI * 'i) = -1.
 Proof.

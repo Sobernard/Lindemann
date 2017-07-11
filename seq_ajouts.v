@@ -3,7 +3,7 @@ From mathcomp
 Require Import ssralg ssrnum mxpoly rat poly ssrint polyorder polydiv perm.
 From mathcomp
 Require Import finfun separable fingroup vector.
-From coquelicot
+From Coquelicot
 Require Import Hierarchy.
 From SsrMultinomials
 Require Import finmap order mpoly ssrcomplements.
