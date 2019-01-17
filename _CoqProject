@@ -1,11 +1,11 @@
--R ../math-comp/mathcomp mathcomp
--R ../Struct structs
--R ../multinomials SsrMultinomials
--R . Lind
--R ../coquelicot-2.1.2/theories Coquelicot
+archi.v
+Rstruct.v
+Cstruct.v
+Canalysis.v
+prelim.v
+Lind_part1.v
+Lind_part2.v
+Lind_part3.v
+LindemannTheorem.v
 
-seq_ajouts.v
-seq_wlog1.v
-seq_wlog2.v
-seq_wlog3.v
-seq_Lind.v
+-R . Lindemann

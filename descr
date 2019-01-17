@@ -1,0 +1,10 @@
+Lindemann-Weierstrass theorem
+
+This library contains the complete formal proof of the Lindemann-Weierstrass
+theorem and some corrolaries (transcendence of e, pi, Hermitte-Lindemann's
+theorem) in file LindemannTheorem.v.  
+
+Il also contains some definitions and theorems on archimedean structures
+(archi.v), the structures for the coq Reals, the complex (Rstruct.v and
+Cstruct.v) and for analysis for real to complex functions (Canalysis.v).
+
